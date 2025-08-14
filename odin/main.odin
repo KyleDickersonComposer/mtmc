@@ -8,7 +8,9 @@ import rl "vendor:raylib"
 
 width, height, row_height, row_offset, column_width, column_offset, font_size: i32
 
-base_font_size: i32 = 20
+base_font_size: i32 = 24
+
+font: rl.Font
 
 calculate_layout :: proc() {
 	width = rl.GetScreenWidth()
@@ -25,25 +27,28 @@ calculate_layout :: proc() {
 
 draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring) {
 	msg_width := rl.MeasureText(msg, font_size)
-	rl.DrawText(
-		msg,
-		(pos.x * column_width) + column_offset - (msg_width / 2),
-		(pos.y * row_height) + row_offset - font_size,
-		font_size,
-		rl.BLACK,
-	)
+
+	pos_vec := [2]f32 {
+		f32((pos.x * column_width) + column_offset - (msg_width / 2)),
+		f32((pos.y * row_height) + row_offset - font_size),
+	}
+
+	rl.DrawTextEx(font, msg, pos_vec, f32(font_size), 0, rl.LIGHTGRAY)
 }
 
 main :: proc() {
 
 	rl.SetConfigFlags(rl.ConfigFlags{.WINDOW_RESIZABLE})
 	rl.InitWindow(0, 0, "Odin-MTMC")
+	rl.SetTextureFilter(font.texture, .TRILINEAR)
+
+	font = rl.LoadFontEx("fonts/Cascadia_Code/static/CascadiaCode-Semibold.ttf", 256, nil, 0)
 
 	for !rl.WindowShouldClose() {
 		calculate_layout()
 
 		rl.BeginDrawing()
-		rl.ClearBackground(rl.RAYWHITE)
+		rl.ClearBackground(rl.BLACK)
 
 		draw_centered_text_into_grid({0, 0}, "PDP-11 Lights")
 		draw_centered_text_into_grid({0, 1}, "Memory")
