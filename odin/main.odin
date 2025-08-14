@@ -2,23 +2,28 @@ package main
 
 import "core:c"
 import "core:fmt"
+import "core:math/linalg"
 import rl "vendor:raylib"
 
-FONT_SIZE: i32 : 32
 
-width, height, row_height, row_offset, column_width, column_offset: i32
+width, height, row_height, row_offset, column_width, column_offset, font_size: i32
+
+base_font_size: i32 = 20
 
 calculate_layout :: proc() {
 	width = rl.GetScreenWidth()
 	height = rl.GetScreenHeight()
+
 	row_height = height / 2
 	row_offset = (row_height / 2)
 	column_width = width / 3
 	column_offset = (column_width / 2)
+
+	font_size = base_font_size
 }
 
 
-draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring, font_size := FONT_SIZE) {
+draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring) {
 	msg_width := rl.MeasureText(msg, font_size)
 	rl.DrawText(
 		msg,
