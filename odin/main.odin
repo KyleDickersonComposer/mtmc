@@ -39,7 +39,7 @@ main :: proc() {
 
 	rl.SetConfigFlags(rl.ConfigFlags{.WINDOW_RESIZABLE})
 	rl.InitWindow(0, 0, "Odin-MTMC")
-	rl.SetTextureFilter(font.texture, .TRILINEAR)
+	rl.SetTextureFilter(font.texture, .BILINEAR)
 
 	font = rl.LoadFontEx("fonts/Cascadia_Code/static/CascadiaCode-Semibold.ttf", 32, nil, 0)
 
