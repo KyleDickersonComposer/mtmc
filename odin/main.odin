@@ -2,7 +2,6 @@ package main
 
 import "core:c"
 import "core:fmt"
-import "core:math/linalg"
 import rl "vendor:raylib"
 
 
@@ -42,7 +41,7 @@ main :: proc() {
 	rl.InitWindow(0, 0, "Odin-MTMC")
 	rl.SetTextureFilter(font.texture, .TRILINEAR)
 
-	font = rl.LoadFontEx("fonts/Cascadia_Code/static/CascadiaCode-Semibold.ttf", 256, nil, 0)
+	font = rl.LoadFontEx("fonts/Cascadia_Code/static/CascadiaCode-Semibold.ttf", 32, nil, 0)
 
 	for !rl.WindowShouldClose() {
 		calculate_layout()
@@ -59,4 +58,6 @@ main :: proc() {
 
 		rl.EndDrawing()
 	}
+
+	rl.CloseWindow()
 }
