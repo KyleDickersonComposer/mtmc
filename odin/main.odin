@@ -5,9 +5,10 @@ import "core:fmt"
 import rl "vendor:raylib"
 
 
-width, height, row_height, row_offset, column_width, column_offset, font_size: i32
+width, height, row_height, row_offset, column_width, column_offset: i32
 
-base_font_size: i32 = 24
+font_size: i32 = 22
+base_font_size: i32 = 2 * font_size
 
 font: rl.Font
 
@@ -19,29 +20,32 @@ calculate_layout :: proc() {
 	row_offset = (row_height / 2)
 	column_width = width / 3
 	column_offset = (column_width / 2)
-
-	font_size = base_font_size
 }
-
 
 draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring) {
 	msg_width := rl.MeasureText(msg, font_size)
 
 	pos_vec := [2]f32 {
 		f32((pos.x * column_width) + column_offset - (msg_width / 2)),
-		f32((pos.y * row_height) + row_offset - font_size),
+		f32((pos.y * row_height) + row_offset + font_size),
 	}
 
-	rl.DrawTextEx(font, msg, pos_vec, f32(font_size), 0, rl.LIGHTGRAY)
+	rl.DrawTextEx(font, msg, pos_vec, f32(font_size), 0, rl.RAYWHITE)
 }
 
 main :: proc() {
+	rl.SetConfigFlags(rl.ConfigFlags{.WINDOW_RESIZABLE, .WINDOW_HIGHDPI})
 
-	rl.SetConfigFlags(rl.ConfigFlags{.WINDOW_RESIZABLE})
 	rl.InitWindow(0, 0, "Odin-MTMC")
-	rl.SetTextureFilter(font.texture, .BILINEAR)
+	defer rl.CloseWindow()
 
-	font = rl.LoadFontEx("fonts/Cascadia_Code/static/CascadiaCode-Semibold.ttf", 32, nil, 0)
+	font = rl.LoadFontEx(
+		"fonts/Cascadia_Code/static/CascadiaCode-Semibold.ttf",
+		base_font_size,
+		nil,
+		0,
+	)
+	defer rl.UnloadFont(font)
 
 	for !rl.WindowShouldClose() {
 		calculate_layout()
@@ -59,5 +63,4 @@ main :: proc() {
 		rl.EndDrawing()
 	}
 
-	rl.CloseWindow()
 }
