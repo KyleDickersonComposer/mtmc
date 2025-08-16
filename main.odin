@@ -13,10 +13,8 @@ font_size: f32 = 40
 base_font_size: f32 = 2 * font_size
 
 music_font: rl.Font
-music_font_size: f32 = 68
+music_font_size: f32 = 150
 base_music_font_size: f32 = music_font_size * 2
-
-symbols := []rune{0xE050}
 
 calculate_layout :: proc() {
 	width = rl.GetScreenWidth()
@@ -42,6 +40,11 @@ draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring) {
 main :: proc() {
 	rl.SetConfigFlags(rl.ConfigFlags{.WINDOW_RESIZABLE, .WINDOW_HIGHDPI})
 
+	symbols := make([]rune, 0xF3FF - 0xE000)
+	for i in 0 ..< len(symbols) {
+		symbols[i] = rune(0xE000 + i)
+	}
+
 	rl.InitWindow(0, 0, "Odin-MTMC")
 	defer rl.CloseWindow()
 
@@ -56,8 +59,8 @@ main :: proc() {
 	music_font = rl.LoadFontEx(
 		"fonts/Bravura/Bravura.otf",
 		i32(base_music_font_size),
-		raw_data(symbols[:]),
-		0,
+		raw_data(symbols),
+		i32(len(symbols)),
 	)
 	defer rl.UnloadFont(music_font)
 
@@ -76,9 +79,9 @@ main :: proc() {
 
 		rl.DrawTextCodepoint(
 			music_font,
-			symbols[0],
+			symbols[80],
 			{f32(width / 2), f32(height / 2)},
-			f32(base_music_font_size),
+			music_font_size,
 			font_color,
 		)
 
