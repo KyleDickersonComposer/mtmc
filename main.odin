@@ -16,7 +16,7 @@ music_font: rl.Font
 music_font_size: f32 = 68
 base_music_font_size: f32 = music_font_size * 2
 
-symbols := []rune{'\uE050'}
+symbols := []rune{0xE050}
 
 calculate_layout :: proc() {
 	width = rl.GetScreenWidth()
