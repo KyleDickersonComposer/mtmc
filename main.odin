@@ -4,10 +4,9 @@ import "core:c"
 import "core:fmt"
 import rl "vendor:raylib"
 
-
 width, height, row_height, row_offset, column_width, column_offset: i32
 
-font_size: i32 = 24
+font_size: i32 = 40
 base_font_size: i32 = 2 * font_size
 
 font: rl.Font
@@ -17,9 +16,9 @@ calculate_layout :: proc() {
 	height = rl.GetScreenHeight()
 
 	row_height = height / 2
-	row_offset = (row_height / 2)
+	row_offset = row_height / 2
 	column_width = width / 3
-	column_offset = (column_width / 2)
+	column_offset = column_width / 2
 }
 
 draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring) {
@@ -30,7 +29,7 @@ draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring) {
 		f32((pos.y * row_height) + row_offset + font_size),
 	}
 
-	rl.DrawTextEx(font, msg, pos_vec, f32(font_size), 0, rl.RAYWHITE)
+	rl.DrawTextEx(font, msg, pos_vec, f32(font_size), 0, rl.WHITE)
 }
 
 main :: proc() {
