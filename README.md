@@ -1,16 +1,45 @@
-### Odin-MTMC
+### An implementation of the Montana state Mini Computer (MTMC) in Odin and raylib with Added Music and Sound Features
 
-The plan is to port MTMC to Odin and raylib so that I have a nice project to work on for learning raylib and Odin in more depth. I still need to decide if I'm just going to write everything in raylib, or if I'm going to use raygui for the textboxes and stuff. Probably better to just learn it from scratch... or atleat from raylib and Odin as the base.
+The plan is to embed this into my music teaching website so that my music students can develop some technical skills while doing music stuff. A 16-bit mini-computer is a good way to learn about music technology because music notation is discrete, and music theoretical concepts often look similar to concepts from discrete math and computer science. The MTMC in its current iteration, at the time of writing this, lacks audio and music functionality which are natural features for the 16-bit games projects that naturally flow from the MTMC's design.
 
-Odin and raylib are a good platform for a project like MTMC because they both have good wasm support. Also, I think we can implement the MTMC's file system using the IndexedDB API in javascript which would allow for us to serve this badboy statically.
+### Planned Music Features
+- Music notation system
+- Music encoding system
+- Some kind of API that makes music easy to work with
+- I want the computer to understand some music theory concepts. (How crazy we talkin'?)
+- Some kind of music generation program (would be cool to tie the music generation into Conway's Game of life somehow)
 
-I will probably end up using the Crafting Interpreters book as a reference for how to implement a Stack-Based VM. The C-like language inside of MTMC, called Sea, will also involve concepts from Crafting Interpreters. This gives a good opportunity to tackle two cool projects, and prepare for future my big raylib/Odin project.
+### Music Encoding
+#### First Byte
+- 3 bits for pitch (zero for rests)
+- 2 bits for accidental
+- 3 bits for octave
+
+#### Second Byte
+- 5 bits for duration
+- 2 bits for tie_kind
+- 1 bit for dot
+
+#### Third Byte
+- 2 bits for envelope shape (cresc. | decresc. | doit | fall | n.b. first two are volume and the second two are pitch)
+- 1 bit vibrato flag bit
+- 1 bit legato flag bit
+- 1 bit marcato flag bit
+- 1 bit for dynamics (loud/soft)
+- 1 bit for staccato (short/full)
+- 1 bit for if the accidental bit isn’t set to zero, we treat the accidental as a double (# → x, b → bb)
+
+### Planned Audio Features
+- 4 voice 16-bit synthesizer
+- Sampler (needs to have a noise thing?)
+- Will probably need to figure out some audio FX so that it doesn't sound like crap because digital... (filters, eq, modulation, and distortion)
+- Probably want some kind of way to configure that timbre of each voice (probably need some way to configure it as a function of time? or, atleast have switches or something?)
 
 ### Links
-- [MTMC Specification](https://github.com/KyleDickersonComposer/mtmc/blob/master/docs/MTMC_SPECIFICATION.md)
-- [MTMC Asm](https://github.com/KyleDickersonComposer/mtmc/blob/master/docs/MTMC_ASSEMBLY.md)
-
+- [MTMC Site](https://mtmc.cs.montana.edu/)
+- [MTMC Github](https://github.com/msu/mtmc)
 
 ### Useful Odin Features
 - [Bit Fields for everything](https://odin-lang.org/docs/overview/#bit-fields)
 - [Bit Sets for flags](https://odin-lang.org/docs/overview/#bit-sets)
+- [Conditional Compilation for supporting native and wasm](https://odin-lang.org/docs/overview/#conditional-compilation)
