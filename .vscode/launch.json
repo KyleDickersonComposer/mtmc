@@ -5,7 +5,7 @@
 			"type": "lldb-dap",
 			"request": "launch",
 			"name": "Launch",
-			"program": "${workspaceFolder}/bin/main",
+			"program": "${workspaceFolder}/bin/debug/main",
 			"args": [],
 			"preLaunchTask": "build odin main (debug)",
 			"cwd": "${workspaceFolder}"

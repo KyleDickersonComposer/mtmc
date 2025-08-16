@@ -3,6 +3,8 @@ package main
 import "core:c"
 import "core:fmt"
 import "core:log"
+import "core:os"
+import "core:strings"
 import rl "vendor:raylib"
 
 HEADLESS :: #config(HEADLESS, false)
@@ -20,6 +22,10 @@ music_font_size: f32 = 100
 base_music_font_size: f32 = music_font_size * 2
 
 symbols: []rune
+
+Error :: enum {
+	IO_Error,
+}
 
 calculate_layout :: proc() {
 	width = rl.GetScreenWidth()
@@ -74,8 +80,26 @@ graphics_shutdown :: proc() {
 	rl.CloseWindow()
 }
 
-update :: proc(running: ^bool) {
-	// Interacting with the computer here!
+update :: proc(running: ^bool, buf: []u8) -> Error {
+	count, err := os.read(os.stdin, buf)
+	if err != nil {
+		log.error("failed to read from stdin")
+		return .IO_Error
+	}
+
+
+	input := strings.trim_space(transmute(string)buf[:count])
+
+	if input == "help" || input == "?" {
+		fmt.println("No one can help you here!")
+	}
+
+	if input == "exit" {
+		fmt.println("Buh-bye now!")
+		os.exit(0)
+	}
+
+	return nil
 }
 
 render :: proc() {
@@ -105,13 +129,16 @@ render :: proc() {
 main_loop :: proc() {
 	running := true
 
+	io_buf: [256]byte
+
 	when !HEADLESS {
 		graphics_init()
 		defer graphics_shutdown()
 	}
 
 	for running {
-		update(&running)
+		fmt.print("> ")
+		update(&running, io_buf[:])
 
 		when !HEADLESS {
 			if rl.WindowShouldClose() do running = false
