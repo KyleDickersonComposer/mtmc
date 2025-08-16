@@ -17,6 +17,8 @@ music_font: rl.Font
 music_font_size: f32 = 100
 base_music_font_size: f32 = music_font_size * 2
 
+symbols: []rune
+
 calculate_layout :: proc() {
 	width = rl.GetScreenWidth()
 	height = rl.GetScreenHeight()
@@ -38,19 +40,15 @@ draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring) {
 	rl.DrawTextEx(font, msg, pos_vec, f32(font_size), 0, font_color)
 }
 
-main :: proc() {
-	context.logger = log.create_console_logger()
-
+init :: proc() {
 	rl.SetConfigFlags(rl.ConfigFlags{.WINDOW_RESIZABLE, .WINDOW_HIGHDPI})
 
-	symbols := make([]rune, 0xF3FF - 0xE000)
-	defer delete(symbols)
+	symbols = make([]rune, 0xF3FF - 0xE000)
 	for i in 0 ..< len(symbols) {
 		symbols[i] = rune(0xE000 + i)
 	}
 
 	rl.InitWindow(0, 0, "Odin-MTMC")
-	defer rl.CloseWindow()
 
 	font = rl.LoadFontEx(
 		"fonts/Courier_Prime/CourierPrime-Regular.ttf",
@@ -58,7 +56,6 @@ main :: proc() {
 		nil,
 		0,
 	)
-	defer rl.UnloadFont(font)
 
 	music_font = rl.LoadFontEx(
 		"fonts/Bravura/Bravura.otf",
@@ -66,11 +63,18 @@ main :: proc() {
 		raw_data(symbols),
 		i32(len(symbols)),
 	)
-	defer rl.UnloadFont(music_font)
 
 	dim_of_rect := rl.MeasureTextEx(music_font, "\uE050", music_font_size, 0)
-	log.debug(dim_of_rect)
+}
 
+de_init :: proc() {
+	rl.UnloadFont(font)
+	rl.UnloadFont(music_font)
+	delete(symbols)
+	rl.CloseWindow()
+}
+
+render_loop :: proc() {
 	for !rl.WindowShouldClose() {
 		calculate_layout()
 
@@ -84,8 +88,6 @@ main :: proc() {
 		draw_centered_text_into_grid({2, 0}, "Code Editor")
 		draw_centered_text_into_grid({2, 1}, "Code Editor")
 
-
-		rl.DrawRectangle(width / 2, height / 2, i32(dim_of_rect.x), i32(dim_of_rect.y), rl.RED)
 		rl.DrawTextCodepoint(
 			music_font,
 			symbols[80],
@@ -96,4 +98,13 @@ main :: proc() {
 
 		rl.EndDrawing()
 	}
+}
+
+main :: proc() {
+	context.logger = log.create_console_logger()
+
+	init()
+	defer de_init()
+
+	render_loop()
 }
