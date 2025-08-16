@@ -2,6 +2,7 @@ package main
 
 import "core:c"
 import "core:fmt"
+import "core:log"
 import rl "vendor:raylib"
 
 width, height, row_height, row_offset, column_width, column_offset: i32
@@ -13,7 +14,7 @@ font_size: f32 = 40
 base_font_size: f32 = 2 * font_size
 
 music_font: rl.Font
-music_font_size: f32 = 150
+music_font_size: f32 = 100
 base_music_font_size: f32 = music_font_size * 2
 
 calculate_layout :: proc() {
@@ -38,9 +39,12 @@ draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring) {
 }
 
 main :: proc() {
+	context.logger = log.create_console_logger()
+
 	rl.SetConfigFlags(rl.ConfigFlags{.WINDOW_RESIZABLE, .WINDOW_HIGHDPI})
 
 	symbols := make([]rune, 0xF3FF - 0xE000)
+	defer delete(symbols)
 	for i in 0 ..< len(symbols) {
 		symbols[i] = rune(0xE000 + i)
 	}
@@ -64,6 +68,9 @@ main :: proc() {
 	)
 	defer rl.UnloadFont(music_font)
 
+	dim_of_rect := rl.MeasureTextEx(music_font, "\uE050", music_font_size, 0)
+	log.debug(dim_of_rect)
+
 	for !rl.WindowShouldClose() {
 		calculate_layout()
 
@@ -77,6 +84,8 @@ main :: proc() {
 		draw_centered_text_into_grid({2, 0}, "Code Editor")
 		draw_centered_text_into_grid({2, 1}, "Code Editor")
 
+
+		rl.DrawRectangle(width / 2, height / 2, i32(dim_of_rect.x), i32(dim_of_rect.y), rl.RED)
 		rl.DrawTextCodepoint(
 			music_font,
 			symbols[80],
