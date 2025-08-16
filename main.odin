@@ -5,6 +5,8 @@ import "core:fmt"
 import "core:log"
 import rl "vendor:raylib"
 
+HEADLESS :: #config(HEADLESS, false)
+
 width, height, row_height, row_offset, column_width, column_offset: i32
 
 font: rl.Font
@@ -40,7 +42,7 @@ draw_centered_text_into_grid :: proc(pos: [2]i32, msg: cstring) {
 	rl.DrawTextEx(font, msg, pos_vec, f32(font_size), 0, font_color)
 }
 
-init :: proc() {
+graphics_init :: proc() {
 	rl.SetConfigFlags(rl.ConfigFlags{.WINDOW_RESIZABLE, .WINDOW_HIGHDPI})
 
 	symbols = make([]rune, 0xF3FF - 0xE000)
@@ -63,48 +65,64 @@ init :: proc() {
 		raw_data(symbols),
 		i32(len(symbols)),
 	)
-
-	dim_of_rect := rl.MeasureTextEx(music_font, "\uE050", music_font_size, 0)
 }
 
-de_init :: proc() {
+graphics_shutdown :: proc() {
 	rl.UnloadFont(font)
 	rl.UnloadFont(music_font)
 	delete(symbols)
 	rl.CloseWindow()
 }
 
-render_loop :: proc() {
-	for !rl.WindowShouldClose() {
-		calculate_layout()
+update :: proc(running: ^bool) {
+	// Interacting with the computer here!
+}
 
-		rl.BeginDrawing()
-		rl.ClearBackground(background_color)
+render :: proc() {
+	calculate_layout()
 
-		draw_centered_text_into_grid({0, 0}, "PDP-11 Lights")
-		draw_centered_text_into_grid({0, 1}, "Memory")
-		draw_centered_text_into_grid({1, 0}, "Not a Gameboy")
-		draw_centered_text_into_grid({1, 1}, "Terminal")
-		draw_centered_text_into_grid({2, 0}, "Code Editor")
-		draw_centered_text_into_grid({2, 1}, "Code Editor")
+	rl.BeginDrawing()
+	rl.ClearBackground(background_color)
 
-		rl.DrawTextCodepoint(
-			music_font,
-			symbols[80],
-			{f32(width / 2), f32(height / 2)},
-			music_font_size,
-			font_color,
-		)
+	draw_centered_text_into_grid({0, 0}, "PDP-11 Lights")
+	draw_centered_text_into_grid({0, 1}, "Memory")
+	draw_centered_text_into_grid({1, 0}, "Not a Gameboy")
+	draw_centered_text_into_grid({1, 1}, "Terminal")
+	draw_centered_text_into_grid({2, 0}, "Code Editor")
+	draw_centered_text_into_grid({2, 1}, "Code Editor")
 
-		rl.EndDrawing()
+	rl.DrawTextCodepoint(
+		music_font,
+		symbols[80],
+		{f32(width / 2), f32(height / 2)},
+		music_font_size,
+		font_color,
+	)
+
+	rl.EndDrawing()
+}
+
+main_loop :: proc() {
+	running := true
+
+	when !HEADLESS {
+		graphics_init()
+		defer graphics_shutdown()
+	}
+
+	for running {
+		update(&running)
+
+		when !HEADLESS {
+			if rl.WindowShouldClose() do running = false
+			render()
+		}
 	}
 }
+
 
 main :: proc() {
 	context.logger = log.create_console_logger()
 
-	init()
-	defer de_init()
-
-	render_loop()
+	main_loop()
 }
