@@ -7,7 +7,7 @@ import rl "vendor:raylib"
 
 width, height, row_height, row_offset, column_width, column_offset: i32
 
-font_size: i32 = 22
+font_size: i32 = 24
 base_font_size: i32 = 2 * font_size
 
 font: rl.Font
@@ -39,12 +39,7 @@ main :: proc() {
 	rl.InitWindow(0, 0, "Odin-MTMC")
 	defer rl.CloseWindow()
 
-	font = rl.LoadFontEx(
-		"fonts/Cascadia_Code/static/CascadiaCode-Semibold.ttf",
-		base_font_size,
-		nil,
-		0,
-	)
+	font = rl.LoadFontEx("fonts/Courier_Prime/CourierPrime-Regular.ttf", base_font_size, nil, 0)
 	defer rl.UnloadFont(font)
 
 	for !rl.WindowShouldClose() {
@@ -62,5 +57,4 @@ main :: proc() {
 
 		rl.EndDrawing()
 	}
-
 }
