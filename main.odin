@@ -81,24 +81,30 @@ graphics_shutdown :: proc() {
 }
 
 update :: proc(running: ^bool, buf: []u8) -> Error {
-	count, err := os.read(os.stdin, buf)
-	if err != nil {
-		log.error("failed to read from stdin")
-		return .IO_Error
+	when HEADLESS {
+		fmt.print("> ")
+		count, err := os.read(os.stdin, buf)
+		if err != nil {
+			log.error("failed to read from stdin")
+			return .IO_Error
+		}
+
+		input := strings.trim_space(transmute(string)buf[:count])
+
+		if input == "hello" {
+			fmt.println("Hi! I'm MTMC.")
+		}
+
+		if input == "help" || input == "?" {
+			fmt.println("No one can help you here!")
+		}
+
+		if input == "exit" {
+			fmt.println("Buh-bye now!")
+			os.exit(0)
+		}
+
 	}
-
-
-	input := strings.trim_space(transmute(string)buf[:count])
-
-	if input == "help" || input == "?" {
-		fmt.println("No one can help you here!")
-	}
-
-	if input == "exit" {
-		fmt.println("Buh-bye now!")
-		os.exit(0)
-	}
-
 	return nil
 }
 
@@ -137,7 +143,6 @@ main_loop :: proc() {
 	}
 
 	for running {
-		fmt.print("> ")
 		update(&running, io_buf[:])
 
 		when !HEADLESS {
