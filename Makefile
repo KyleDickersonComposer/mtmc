@@ -1,7 +1,7 @@
 run:
 	odin run . -out:bin/main -define:HEADLESS=true
 
-run-gui:
+gui:
 	odin run . -out:bin/main
 
 build:
