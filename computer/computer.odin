@@ -84,9 +84,6 @@ decode_ALU_instruction :: proc(
 	inst: Decoded_Instruction,
 	err: Computer_Error,
 ) {
-	first_operand := match_register(i.third_nibble) or_return
-	second_operand := match_register(i.fourth_nibble) or_return
-
 	switch i.second_nibble {
 	case 0b0000:
 		return Decoded_Instruction{type = .add, instruction = i}, nil
@@ -98,10 +95,9 @@ decode_ALU_instruction :: proc(
 		return Decoded_Instruction{type = .div, instruction = i}, nil
 	case 0b0100:
 		return Decoded_Instruction{type = .mod, instruction = i}, nil
+	case 0b1111:
+		return Decoded_Instruction{type = .imm, instruction = i}, nil
 
-
-	// NOTE: need to handle 2 word thing here. Meaning that it needs to not treat the fourth nibble as a register
-	// imm
 	case:
 		log.errorf("invalid instruction: %b", i.second_nibble)
 		return {}, .Invalid_ALU_Instruction
@@ -125,18 +121,18 @@ decode_instruction :: proc(
 	// misc
 	case 0x1:
 		return decode_ALU_instruction(instruction) or_return, nil
-	case 0x2:
 	// stack
-	case 0x3:
+	case 0x2:
 	// test
-	case 0x4 ..= 0x7:
+	case 0x3:
 	// load/store register
-	case 0x8:
+	case 0x4 ..= 0x7:
 	// load/store
-	case 0x9:
+	case 0x8:
 	//jump register
-	case 0xC ..= 0xF:
+	case 0x9:
 	// jump
+	case 0xC ..= 0xF:
 	case:
 		log.errorf("expected a valid instruction, got: %b", instruction_bytes)
 		return {}, .Invalid_Top_Nibble
@@ -387,6 +383,8 @@ execute_negate :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 
 execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
+	assignment_register := i.instruction.third_nibble
+
 	first_operand := c.Registers[i.instruction.third_nibble]
 	op_nibble := i.instruction.fourth_nibble
 
@@ -396,49 +394,49 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 
 	raw := u16(c.Memory[pc + 2]) << 8 | u16(c.Memory[pc + 3])
 	next_word := i16(raw)
+	log.info(next_word)
 
 	switch op {
 	case .add:
-		// TODO: implement overflow checks on the imm ALU instructions we should break out the overflow logic into its own function
 		check_overflow(first_operand, next_word, .add) or_return
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) + i16(next_word)
+		c.Registers[assignment_register] = first_operand + next_word
 		return nil
 	case .sub:
 		check_overflow(first_operand, next_word, .add) or_return
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) - i16(next_word)
+		c.Registers[assignment_register] = first_operand - next_word
 		return nil
 	case .mul:
 		check_overflow(first_operand, next_word, .mul) or_return
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) * i16(next_word)
+		c.Registers[assignment_register] = first_operand * next_word
 		return nil
 	case .div:
 		check_overflow(first_operand, next_word, .div) or_return
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) / i16(next_word)
+		c.Registers[assignment_register] = first_operand / next_word
 		return nil
 	case .mod:
 		check_overflow(first_operand, next_word, .mod) or_return
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) % i16(next_word)
+		c.Registers[assignment_register] = first_operand % next_word
 		return nil
 	case .and:
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) & i16(next_word)
+		c.Registers[assignment_register] = first_operand & next_word
 		return nil
 	case .or:
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) | i16(next_word)
+		c.Registers[assignment_register] = first_operand | next_word
 		return nil
 	case .xor:
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) ~ i16(next_word)
+		c.Registers[assignment_register] = first_operand ~ next_word
 		return nil
 	case .shl:
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) << u16(next_word)
+		c.Registers[assignment_register] = first_operand << u16(next_word)
 		return nil
 	case .shr:
-		c.Registers[first_operand] = i16(c.Registers[first_operand]) >> u16(next_word)
+		c.Registers[assignment_register] = first_operand >> u16(next_word)
 		return nil
 	case .min:
-		c.Registers[first_operand] = min(i16(c.Registers[first_operand]), i16(next_word))
+		c.Registers[assignment_register] = min(first_operand, next_word)
 		return nil
 	case .max:
-		c.Registers[first_operand] = max(i16(c.Registers[first_operand]), i16(next_word))
+		c.Registers[assignment_register] = max(first_operand, i16(next_word))
 		return nil
 	case .not:
 		c.error_flag = true

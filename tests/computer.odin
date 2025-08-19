@@ -56,7 +56,7 @@ mul_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 42
 	c.Registers[com.Register.t1] = 27
 
-	// sub t0 t1
+	// div t0 t1
 	instruction_as_bytes: u16 = 0b0001_0010_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -78,7 +78,7 @@ div_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 42
 	c.Registers[com.Register.t1] = 27
 
-	// sub t0 t1
+	// div t0 t1
 	instruction_as_bytes: u16 = 0b0001_0011_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -100,7 +100,7 @@ mod_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 42
 	c.Registers[com.Register.t1] = 27
 
-	// sub t0 t1
+	// mod t0 t1
 	instruction_as_bytes: u16 = 0b0001_0100_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -114,4 +114,24 @@ mod_instruction :: proc(t: ^testing.T) {
 	}
 
 	testing.expect_value(t, c.Registers[com.Register.t0], 42 % 27)
+}
+
+@(test)
+imm_add_instruction :: proc(t: ^testing.T) {
+	c := com.Computer{}
+	c.Registers[com.Register.t0] = 42
+
+	instruction_as_bytes: u16 = 0b0001_1111_0000_0000
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, c.Registers[com.Register.t0], 42)
 }
