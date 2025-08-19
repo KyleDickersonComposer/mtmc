@@ -88,7 +88,7 @@ graphics_shutdown :: proc() {
 	rl.CloseWindow()
 }
 
-update :: proc(running: ^bool, buf: []u8) -> Error {
+update :: proc(c: ^com.Computer, running: ^bool, buf: []u8) -> Error {
 	when HEADLESS {
 		fmt.print("> ")
 		count, err := os.read(os.stdin, buf)
@@ -106,7 +106,7 @@ update :: proc(running: ^bool, buf: []u8) -> Error {
 
 		term.print_help_text(input)
 
-		term.parse_command(input)
+		command := term.parse_command(input) or_return
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ render :: proc() {
 	rl.EndDrawing()
 }
 
-main_loop :: proc() {
+main_loop :: proc(c: ^com.Computer) {
 	running := true
 
 	io_buf: [256]byte
@@ -146,7 +146,7 @@ main_loop :: proc() {
 	}
 
 	for running {
-		update(&running, io_buf[:])
+		update(c, &running, io_buf[:])
 
 		when !HEADLESS {
 			if rl.WindowShouldClose() do running = false
@@ -156,5 +156,7 @@ main_loop :: proc() {
 }
 
 main :: proc() {
-	main_loop()
+	computer := com.init_computer()
+	defer com.shutdown_computer(&computer)
+	main_loop(&computer)
 }

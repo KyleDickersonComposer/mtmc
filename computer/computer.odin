@@ -1,6 +1,23 @@
 package computer
 
+import "core:fmt"
 import "core:log"
+
+POSITIVE_OVERFLOW :: 32767
+NEGATIVE_OVERFLOW :: -32768
+
+init_computer :: proc(allocator := context.allocator) -> Computer {
+	errors := make([dynamic]Debug_Error_Info, allocator)
+	return Computer{error_info = errors}
+}
+
+shutdown_computer :: proc(c: ^Computer) {
+	for s in c.error_info {
+		delete(s.error_message)
+	}
+
+	delete(c.error_info)
+}
 
 match_register :: proc(register_as_byte: u8) -> (Register, Computer_Error) {
 	switch register_as_byte {
@@ -61,14 +78,6 @@ match_register :: proc(register_as_byte: u8) -> (Register, Computer_Error) {
 	return .t0, .Failed
 }
 
-get_register_value :: proc(c: ^Computer, r: Register) -> i16 {
-	return c.Registers[r]
-}
-
-set_register_value :: proc(c: ^Computer, r: Register, value: i16) {
-	c.Registers[r] = value
-}
-
 decode_ALU_instruction :: proc(
 	i: Instruction,
 ) -> (
@@ -80,22 +89,15 @@ decode_ALU_instruction :: proc(
 
 	switch i.second_nibble {
 	case 0b0000:
-		return Decoded_Instruction {
-				instruction = .add,
-				first_operand = first_operand,
-				second_operand = second_operand,
-				raw_instruction = i,
-			},
-			nil
-
+		return Decoded_Instruction{type = .add, instruction = i}, nil
 	case 0b0001:
-		return Decoded_Instruction {
-				instruction = .sub,
-				first_operand = first_operand,
-				second_operand = second_operand,
-				raw_instruction = i,
-			},
-			nil
+		return Decoded_Instruction{type = .sub, instruction = i}, nil
+	case 0b0010:
+		return Decoded_Instruction{type = .mul, instruction = i}, nil
+	case 0b0011:
+		return Decoded_Instruction{type = .div, instruction = i}, nil
+	case 0b0100:
+		return Decoded_Instruction{type = .mod, instruction = i}, nil
 
 
 	// NOTE: need to handle 2 word thing here. Meaning that it needs to not treat the fourth nibble as a register
@@ -144,116 +146,277 @@ decode_instruction :: proc(
 	return {}, .Failed
 }
 
+check_overflow :: proc(
+	first_operand: i16,
+	second_operand: i16,
+	op: ALU_Instruction,
+) -> (
+	bool,
+	Execution_Error,
+) {
+	f := i64(first_operand)
+	s := i64(second_operand)
 
-execute_binary_add :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) + get_register_value(c, i.second_operand)
+	evaluation: i64
+
+	#partial switch op {
+	case .add:
+		evaluation = f + s
+	case .sub:
+	case .mul:
+	case .div:
+		if second_operand == 0 {
+			log.error(
+				"hit weird edge case where you are checking an overflow for a division operation that should already have returned in the function call before this one",
+			)
+			return false, nil
+		}
+		evaluation = f / s
+
+	case .mod:
+		if second_operand == 0 {
+			log.error(
+				"hit weird edge case where you are checking an overflow for a modulo operation that should already have returned in the function call before this one",
+			)
+			return false, nil
+		}
+		evaluation = f % s
+	case:
+		log.error("invalid overflow check on operation that can't overflow, op:", op)
+		return false, .Invalid_Overflow_Check_On_Operation_That_Will_Not_Overflow
+	}
+
+
+	if evaluation > POSITIVE_OVERFLOW || evaluation < NEGATIVE_OVERFLOW {
+		return true, nil
+	}
+	return false, nil
 }
 
-execute_binary_sub :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) - get_register_value(c, i.second_operand)
+execute_add :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	c.overflow_flag = check_overflow(first_operand, second_operand, .add) or_return
+
+	c.Registers[assignment_register] = first_operand + second_operand
+
+	return nil
 }
 
-execute_binary_mul :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) * get_register_value(c, i.second_operand)
+execute_sub :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	c.overflow_flag = check_overflow(first_operand, second_operand, .sub) or_return
+
+	c.Registers[assignment_register] = first_operand - second_operand
+
+	return nil
 }
 
-execute_binary_div :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) / get_register_value(c, i.second_operand)
+execute_mul :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+	overflow := i64(first_operand) * i64(second_operand)
+
+	c.overflow_flag = check_overflow(first_operand, second_operand, .mul) or_return
+
+	c.Registers[assignment_register] = first_operand * second_operand
+
+	return nil
 }
 
-execute_binary_mod :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) % get_register_value(c, i.second_operand)
-}
+execute_div :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	assignment_register := i.instruction.third_nibble
 
-execute_binary_bitwise_and :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) & get_register_value(c, i.second_operand)
-}
+	if i.instruction.fourth_nibble == 0 {
+		c.error_flag = true
 
-execute_binary_bitwise_or :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) | get_register_value(c, i.second_operand)
-}
-
-execute_binary_xor :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) ~ get_register_value(c, i.second_operand)
-}
-
-execute_binary_shl :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) << u16(get_register_value(c, i.second_operand))
-}
-
-execute_binary_shr :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] =
-		get_register_value(c, i.first_operand) >> u16(get_register_value(c, i.second_operand))
-}
-
-execute_binary_min :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] = min(
-		get_register_value(c, i.first_operand),
-		get_register_value(c, i.second_operand),
-	)
-}
-
-execute_binary_max :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] = max(
-		get_register_value(c, i.first_operand),
-		get_register_value(c, i.second_operand),
-	)
-}
-
-execute_unary_bitwise_not :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] = ~get_register_value(c, i.first_operand)
-}
-
-execute_unary_logical_not :: proc(c: ^Computer, i: Decoded_Instruction) {
-	r := get_register_value(c, i.first_operand)
-
-	if r == 0 {
-		c.Registers[i.first_operand] = 1
+		pc := c.Registers[Register.pc]
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				error_message = fmt.aprintf(
+					"divide by zero at pc: 0x%04X (instruction %d)",
+					pc,
+					pc / 2,
+				),
+			},
+		)
+		return nil
 	} else {
-		c.Registers[i.first_operand] = 0
+		first_operand := c.Registers[i.instruction.third_nibble]
+		second_operand := c.Registers[i.instruction.fourth_nibble]
+		overflow := i64(first_operand) / i64(second_operand)
+
+		c.overflow_flag = check_overflow(first_operand, second_operand, .div) or_return
+
+		c.Registers[assignment_register] = first_operand / second_operand
+	}
+
+	return nil
+}
+
+execute_mod :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	assignment_register := i.instruction.third_nibble
+
+	if i.instruction.fourth_nibble == 0 {
+		c.error_flag = true
+
+		pc := c.Registers[Register.pc]
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				error_message = fmt.aprintf(
+					"mod by zero at pc: 0x%04X (instruction %d)",
+					pc,
+					pc / 2,
+				),
+			},
+		)
+		return nil
+	} else {
+		first_operand := c.Registers[i.instruction.third_nibble]
+		second_operand := c.Registers[i.instruction.fourth_nibble]
+
+		c.overflow_flag = check_overflow(first_operand, second_operand, .mod) or_return
+
+		c.Registers[assignment_register] = first_operand % second_operand
+	}
+
+	return nil
+}
+
+execute_bitwise_and :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	c.Registers[assignment_register] = first_operand & second_operand
+}
+
+execute_bitwise_or :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	c.Registers[assignment_register] = first_operand | second_operand
+}
+
+execute_xor :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	c.Registers[assignment_register] = first_operand ~ second_operand
+}
+
+execute_shl :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	c.Registers[assignment_register] = first_operand << u16(second_operand)
+}
+
+execute_shr :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	c.Registers[assignment_register] = first_operand >> u16(second_operand)
+}
+
+execute_min :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+	c.Registers[assignment_register] = min(first_operand, second_operand)
+}
+
+execute_max :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+	c.Registers[assignment_register] = max(first_operand, second_operand)
+}
+
+execute_bitwise_not :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	operand := c.Registers[i.instruction.third_nibble]
+
+	c.Registers[assignment_register] = ~operand
+}
+
+execute_logical_not :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	operand := c.Registers[i.instruction.third_nibble]
+
+	if operand == 0 {
+		c.Registers[assignment_register] = 1
+	} else {
+		c.Registers[assignment_register] = 0
 	}
 }
 
-execute_unary_negate :: proc(c: ^Computer, i: Decoded_Instruction) {
-	c.Registers[i.first_operand] = -get_register_value(c, i.first_operand)
+execute_negate :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+
+	operand := c.Registers[i.instruction.third_nibble]
+
+	c.Registers[assignment_register] = -operand
 }
 
 
 execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
-	assert(i.instruction == .imm)
-
-	first_operand := i.raw_instruction.third_nibble
-	op_nibble := i.raw_instruction.fourth_nibble
+	first_operand := c.Registers[i.instruction.third_nibble]
+	op_nibble := i.instruction.fourth_nibble
 
 	op := cast(ALU_Instruction)op_nibble
 
 	pc := c.Registers[Register.pc]
 
-	next_word := u16(c.Memory[pc]) << 8 | u16(c.Memory[pc + 1])
+	raw := u16(c.Memory[pc + 2]) << 8 | u16(c.Memory[pc + 3])
+	next_word := i16(raw)
 
 	switch op {
 	case .add:
+		// TODO: implement overflow checks on the imm ALU instructions we should break out the overflow logic into its own function
+		check_overflow(first_operand, next_word, .add) or_return
 		c.Registers[first_operand] = i16(c.Registers[first_operand]) + i16(next_word)
 		return nil
 	case .sub:
+		check_overflow(first_operand, next_word, .add) or_return
 		c.Registers[first_operand] = i16(c.Registers[first_operand]) - i16(next_word)
 		return nil
 	case .mul:
+		check_overflow(first_operand, next_word, .mul) or_return
 		c.Registers[first_operand] = i16(c.Registers[first_operand]) * i16(next_word)
 		return nil
 	case .div:
+		check_overflow(first_operand, next_word, .div) or_return
 		c.Registers[first_operand] = i16(c.Registers[first_operand]) / i16(next_word)
 		return nil
 	case .mod:
+		check_overflow(first_operand, next_word, .mod) or_return
 		c.Registers[first_operand] = i16(c.Registers[first_operand]) % i16(next_word)
 		return nil
 	case .and:
@@ -278,15 +441,35 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		c.Registers[first_operand] = max(i16(c.Registers[first_operand]), i16(next_word))
 		return nil
 	case .not:
-		// TODO: need to setup error handling for the unary immediate mode things?
-		log.error("unary operations shouldn't be performed in immediate mode")
-		return .Invalid_ALU_Instruction
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = pc,
+				error_message = fmt.aprintf("unary operation in immediate mode are invalid"),
+			},
+		)
+		return nil
 	case .l_not:
-		log.error("unary operations shouldn't be performed in immediate mode")
-		return .Invalid_ALU_Instruction
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = pc,
+				error_message = fmt.aprintf("unary operation in immediate mode are invalid"),
+			},
+		)
+		return nil
 	case .neg:
-		log.error("unary operations shouldn't be performed in immediate mode")
-		return .Invalid_ALU_Instruction
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = pc,
+				error_message = fmt.aprintf("unary operation in immediate mode are invalid"),
+			},
+		)
+		return nil
 	case .imm:
 		log.errorf("invalid op in imm instruction, got: %b", op)
 		return .Invalid_Operation_In_Immediate_Mode_ALU_Instruction
@@ -298,51 +481,56 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 
 
 execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
-	switch i.instruction {
+	// NOTE: reseting flags numerical flags here
+	c.nan_flag = false
+	c.overflow_flag = false
+	c.test_flag = false
+
+	switch i.type {
 	case .add:
-		execute_binary_add(c, i)
+		execute_add(c, i)
 		return nil
 	case .sub:
-		execute_binary_sub(c, i)
+		execute_sub(c, i)
 		return nil
 	case .mul:
-		execute_binary_mul(c, i)
+		execute_mul(c, i)
 		return nil
 	case .div:
-		execute_binary_div(c, i)
+		execute_div(c, i)
 		return nil
 	case .mod:
-		execute_binary_mod(c, i)
+		execute_mod(c, i)
 		return nil
 	case .and:
-		execute_binary_bitwise_and(c, i)
+		execute_bitwise_and(c, i)
 		return nil
 	case .or:
-		execute_binary_bitwise_or(c, i)
+		execute_bitwise_or(c, i)
 		return nil
 	case .xor:
-		execute_binary_xor(c, i)
+		execute_xor(c, i)
 		return nil
 	case .shl:
-		execute_binary_shl(c, i)
+		execute_shl(c, i)
 		return nil
 	case .shr:
-		execute_binary_shr(c, i)
+		execute_shr(c, i)
 		return nil
 	case .min:
-		execute_binary_min(c, i)
+		execute_min(c, i)
 		return nil
 	case .max:
-		execute_binary_max(c, i)
+		execute_max(c, i)
 		return nil
 	case .not:
-		execute_unary_bitwise_not(c, i)
+		execute_bitwise_not(c, i)
 		return nil
 	case .l_not:
-		execute_unary_logical_not(c, i)
+		execute_logical_not(c, i)
 		return nil
 	case .neg:
-		execute_unary_negate(c, i)
+		execute_negate(c, i)
 		return nil
 	case .imm:
 		execute_immediate_ALU_operation(c, i)
@@ -353,8 +541,9 @@ execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Compute
 	return .Failed
 }
 
+// TODO: I'm not sure about this union of enums match thing...
 execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
-	switch v in i.instruction {
+	switch v in i.type {
 	case ALU_Instruction:
 		execute_ALU_instruction(c, i)
 		return nil

@@ -2,6 +2,7 @@ package computer
 
 Computer_Error :: union {
 	Instruction_Decoding_Error,
+	Execution_Error,
 }
 
 Instruction_Decoding_Error :: enum {
@@ -10,7 +11,11 @@ Instruction_Decoding_Error :: enum {
 	Invalid_ALU_Instruction,
 	Invalid_Encoding_Of_Register_Index,
 	Invalid_Decoded_Instruction,
+}
+
+Execution_Error :: enum {
 	Invalid_Operation_In_Immediate_Mode_ALU_Instruction,
+	Invalid_Overflow_Check_On_Operation_That_Will_Not_Overflow,
 }
 
 Computer :: struct {
@@ -20,6 +25,12 @@ Computer :: struct {
 	overflow_flag: bool,
 	nan_flag:      bool,
 	error_flag:    bool,
+	error_info:    [dynamic]Debug_Error_Info,
+}
+
+Debug_Error_Info :: struct {
+	pc:            i16,
+	error_message: string,
 }
 
 Register :: enum {
@@ -91,10 +102,8 @@ Instruction_Kind :: union {
 }
 
 Decoded_Instruction :: struct {
-	instruction:     Instruction_Kind,
-	first_operand:   Register,
-	second_operand:  Register,
-	raw_instruction: Instruction,
+	type:        Instruction_Kind,
+	instruction: Instruction,
 }
 
 Two_Word_Instruction :: enum {
@@ -119,6 +128,10 @@ Miscellaneous_Instruction :: enum {
 	mcp,
 	debug,
 	nop = 0b1111,
+}
+
+Overflowable_Instruction :: enum {
+	sop,
 }
 
 
