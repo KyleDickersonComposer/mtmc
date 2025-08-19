@@ -121,6 +121,9 @@ imm_add_instruction :: proc(t: ^testing.T) {
 	c := com.Computer{}
 	c.Registers[com.Register.t0] = 42
 
+	com.set_word(&c, 27, 2)
+
+
 	instruction_as_bytes: u16 = 0b0001_1111_0000_0000
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -133,5 +136,5 @@ imm_add_instruction :: proc(t: ^testing.T) {
 		testing.fail(t)
 	}
 
-	testing.expect_value(t, c.Registers[com.Register.t0], 42)
+	testing.expect_value(t, c.Registers[com.Register.t0], 42 + 27)
 }

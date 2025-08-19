@@ -19,6 +19,20 @@ shutdown_computer :: proc(c: ^Computer) {
 	delete(c.error_info)
 }
 
+set_word :: proc(c: ^Computer, value: i16, pc_offset: i16) -> Computer_Error {
+	pc := c.Registers[Register.pc] + pc_offset
+
+	raw := u16(value)
+
+	first_byte := u8((raw >> 8) & 0xFF)
+	second_byte := u8(raw & 0xFF)
+
+	c.Memory[pc] = first_byte
+	c.Memory[pc + 1] = second_byte
+
+	return nil
+}
+
 match_register :: proc(register_as_byte: u8) -> (Register, Computer_Error) {
 	switch register_as_byte {
 	case 0:
@@ -394,7 +408,6 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 
 	raw := u16(c.Memory[pc + 2]) << 8 | u16(c.Memory[pc + 3])
 	next_word := i16(raw)
-	log.info(next_word)
 
 	switch op {
 	case .add:

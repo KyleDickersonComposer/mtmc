@@ -16,6 +16,7 @@ Instruction_Decoding_Error :: enum {
 Execution_Error :: enum {
 	Invalid_Operation_In_Immediate_Mode_ALU_Instruction,
 	Invalid_Overflow_Check_On_Operation_That_Will_Not_Overflow,
+	Failed_To_Set_Word,
 }
 
 Computer :: struct {
