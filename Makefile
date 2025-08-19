@@ -1,6 +1,9 @@
 run:
 	odin run . -out:bin/main -define:HEADLESS=true
 
+test:
+	odin test ./tests/ -out:bin/test
+
 gui:
 	odin run . -out:bin/main
 

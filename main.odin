@@ -1,5 +1,6 @@
 package main
 
+import com "computer"
 import "core:c"
 import "core:fmt"
 import "core:log"
@@ -23,7 +24,12 @@ base_music_font_size: f32 = music_font_size * 2
 
 symbols: []rune
 
-Error :: enum {
+Error :: union {
+	Gui_Error,
+	com.Error,
+}
+
+Gui_Error :: enum {
 	IO_Error,
 }
 
@@ -153,7 +159,5 @@ main_loop :: proc() {
 }
 
 main :: proc() {
-	context.logger = log.create_console_logger()
-
 	main_loop()
 }

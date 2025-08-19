@@ -1,34 +1,20 @@
 package computer
 
+Error :: union {
+	Instruction_Decoding_Error,
+}
+
+Instruction_Decoding_Error :: enum {
+	Failed,
+	Invalid_Top_Nibble,
+	Invalid_Alu_Instruction,
+	Invalid_Encoding_Of_Register_Index,
+	Invalid_Decoded_Instruction,
+}
+
 Computer :: struct {
 	Memory:        [4096]byte,
-
-	// registers
-	t0:            u16,
-	t1:            u16,
-	t2:            u16,
-	t3:            u16,
-	t4:            u16,
-	t5:            u16,
-	a0:            u16,
-	a1:            u16,
-	a2:            u16,
-	a3:            u16,
-	rv:            u16,
-	ra:            u16,
-	fp:            u16,
-	sp:            u16,
-	bp:            u16,
-	pc:            u16,
-
-	// non-user facing registers
-	ir:            u16,
-	dr:            u16,
-	cb:            u16,
-	db:            u16,
-	io:            u16,
-
-	// flags
+	Registers:     [20]i16,
 	test_flag:     bool,
 	overflow_flag: bool,
 	nan_flag:      bool,
@@ -87,11 +73,26 @@ Syscall :: enum {
 }
 
 Instruction :: bit_field u16 {
-	first_nibble:  u8 | 4,
-	second_nibble: u8 | 4,
-	third_nibble:  u8 | 4,
 	fourth_nibble: u8 | 4,
+	third_nibble:  u8 | 4,
+	second_nibble: u8 | 4,
+	first_nibble:  u8 | 4,
 }
+
+Decoded_Instruction :: union {
+	Decoded_Binary_Instruction,
+	Decoded_Unary_Instruction,
+	Decoded_Two_Word_Instruction,
+}
+
+Decoded_Binary_Instruction :: struct {
+	operation:      ALU_Instruction,
+	first_operand:  User_Facing_Registers,
+	second_operand: User_Facing_Registers,
+}
+
+Decoded_Unary_Instruction :: struct {}
+Decoded_Two_Word_Instruction :: struct {}
 
 Two_Word_Instruction :: enum {
 	mcp,
