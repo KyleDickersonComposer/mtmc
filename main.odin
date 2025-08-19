@@ -6,6 +6,7 @@ import "core:fmt"
 import "core:log"
 import "core:os"
 import "core:strings"
+import term "terminal"
 import rl "vendor:raylib"
 
 HEADLESS :: #config(HEADLESS, false)
@@ -26,7 +27,8 @@ symbols: []rune
 
 Error :: union {
 	Gui_Error,
-	com.Error,
+	com.Computer_Error,
+	term.Terminal_Error,
 }
 
 Gui_Error :: enum {
@@ -97,19 +99,14 @@ update :: proc(running: ^bool, buf: []u8) -> Error {
 
 		input := strings.trim_space(transmute(string)buf[:count])
 
-		if input == "hello" {
-			fmt.println("Hi! I'm MTMC.")
-		}
-
-		if input == "help" || input == "?" {
-			fmt.println("No one can help you here!")
-		}
-
 		if input == "exit" {
 			fmt.println("Buh-bye now!")
 			os.exit(0)
 		}
 
+		term.print_help_text(input)
+
+		term.parse_command(input)
 	}
 	return nil
 }

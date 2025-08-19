@@ -1,15 +1,16 @@
 package computer
 
-Error :: union {
+Computer_Error :: union {
 	Instruction_Decoding_Error,
 }
 
 Instruction_Decoding_Error :: enum {
 	Failed,
 	Invalid_Top_Nibble,
-	Invalid_Alu_Instruction,
+	Invalid_ALU_Instruction,
 	Invalid_Encoding_Of_Register_Index,
 	Invalid_Decoded_Instruction,
+	Invalid_Operation_In_Immediate_Mode_ALU_Instruction,
 }
 
 Computer :: struct {
@@ -21,7 +22,7 @@ Computer :: struct {
 	error_flag:    bool,
 }
 
-User_Facing_Registers :: enum {
+Register :: enum {
 	t0,
 	t1,
 	t2,
@@ -38,6 +39,11 @@ User_Facing_Registers :: enum {
 	sp,
 	bp,
 	pc,
+	ir,
+	dr,
+	cb,
+	db,
+	io,
 }
 
 Syscall :: enum {
@@ -72,6 +78,7 @@ Syscall :: enum {
 	error    = 0xFF,
 }
 
+// NOTE: reversed field order because bif_fields is RTL?
 Instruction :: bit_field u16 {
 	fourth_nibble: u8 | 4,
 	third_nibble:  u8 | 4,
@@ -79,20 +86,16 @@ Instruction :: bit_field u16 {
 	first_nibble:  u8 | 4,
 }
 
-Decoded_Instruction :: union {
-	Decoded_Binary_Instruction,
-	Decoded_Unary_Instruction,
-	Decoded_Two_Word_Instruction,
+Instruction_Kind :: union {
+	ALU_Instruction,
 }
 
-Decoded_Binary_Instruction :: struct {
-	operation:      ALU_Instruction,
-	first_operand:  User_Facing_Registers,
-	second_operand: User_Facing_Registers,
+Decoded_Instruction :: struct {
+	instruction:     Instruction_Kind,
+	first_operand:   Register,
+	second_operand:  Register,
+	raw_instruction: Instruction,
 }
-
-Decoded_Unary_Instruction :: struct {}
-Decoded_Two_Word_Instruction :: struct {}
 
 Two_Word_Instruction :: enum {
 	mcp,
@@ -191,7 +194,7 @@ Jump_Register_Instruction :: enum {
 	ret,
 }
 
-// NOTE: Jumps to the address encoded in the lower three bytes.
+// NOTE: Jumps to the address encoded in the last three nibbles.
 Jump_Instruction :: enum {
 	j,
 	jz,
