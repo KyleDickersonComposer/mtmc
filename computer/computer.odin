@@ -719,6 +719,10 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 	return .Invalid_Operation_In_Immediate_Mode_ALU_Instruction
 }
 
+execute_misc_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	log.error("invalid misc instruction:", i)
+	return .Failed_To_Execute_Instruction
+}
 
 execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	// NOTE: reseting flags numerical flags here
@@ -1346,9 +1350,61 @@ execute_load_store_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> 
 	return .Failed_To_Execute_Instruction
 }
 
+execute_jump_register :: proc(c: ^Computer, i: Decoded_Instruction) {
+	jump_to := c.Registers[i.instruction.fourth_nibble]
+
+	c.Registers[Register.pc] = jump_to
+}
+
+get_jump_to_from_bottom_three_nibbles :: proc(i: Decoded_Instruction) -> i16 {
+	jump_to :=
+		i16(i.instruction.second_nibble << 8) |
+		i16(i.instruction.third_nibble << 4) |
+		i16(i.instruction.fourth_nibble)
+
+	return jump_to
+}
+
+execute_jump :: proc(c: ^Computer, i: Decoded_Instruction) {
+	jump_to := get_jump_to_from_bottom_three_nibbles(i)
+	c.Registers[Register.pc] = jump_to
+}
+
+execute_jump_zero :: proc(c: ^Computer, i: Decoded_Instruction) {
+	if c.test_flag == false {
+		jump_to := get_jump_to_from_bottom_three_nibbles(i)
+		c.Registers[Register.pc] = jump_to
+	}
+}
+
+execute_jump_not_zero :: proc(c: ^Computer, i: Decoded_Instruction) {
+	if c.test_flag == true {
+		jump_to := get_jump_to_from_bottom_three_nibbles(i)
+		c.Registers[Register.pc] = jump_to
+	}
+}
+
+execute_jump_and_link :: proc(c: ^Computer, i: Decoded_Instruction) {
+	jump_to := get_jump_to_from_bottom_three_nibbles(i)
+
+	c.Registers[Register.ra] = c.Registers[Register.pc] + 1
+	c.Registers[Register.pc] = jump_to
+}
+
+execute_jump_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	switch i.type {
+	case .j:
+		execute_jump(c, i)
+	}
+
+	log.error("invalid jump_register instruction:", i)
+	return .Failed_To_Execute_Instruction
+}
+
 execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
-	// TODO: Implement rest
-	#partial switch v in i.type {
+	switch v in i.type {
+	case Miscellaneous_Instruction:
+		execute_misc_instruction(c, i) or_return
 	case ALU_Instruction:
 		execute_ALU_instruction(c, i) or_return
 		return nil
@@ -1364,7 +1420,10 @@ execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Er
 	case Load_Store_Instruction:
 		execute_load_store_instruction(c, i) or_return
 		return nil
-
+	case Jump_Register_Instruction:
+		execute_jump_register(c, i)
+	case Jump_Instruction:
+		execute_jump_instruction(c, i) or_return
 	}
 
 	log.error("failed to execute instruction:", i)
