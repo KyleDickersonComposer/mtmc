@@ -7,6 +7,7 @@ Computer_Error :: union {
 
 Instruction_Decoding_Error :: enum {
 	Invalid_Top_Nibble,
+	Invalid_Misc_Instruction,
 	Invalid_ALU_Instruction,
 	Invalid_Stack_Instruction,
 	Invalid_Test_Instruction,
@@ -113,6 +114,7 @@ Instruction_Kind :: union {
 	Load_Store_Instruction,
 	Jump_Register_Instruction,
 	Jump_Instruction,
+	Miscellaneous_Instruction,
 }
 
 Decoded_Instruction :: struct {
@@ -136,7 +138,7 @@ Two_Word_Instruction :: enum {
 Miscellaneous_Instruction :: enum {
 	sys,
 	mov,
-	inv,
+	inc,
 	dec,
 	seti,
 	mcp,
