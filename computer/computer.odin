@@ -24,11 +24,8 @@ set_word :: proc(c: ^Computer, value: i16, pc_offset: i16) -> Computer_Error {
 
 	raw := u16(value)
 
-	first_byte := u8((raw >> 8) & 0xFF)
-	second_byte := u8(raw & 0xFF)
-
-	c.Memory[pc] = first_byte
-	c.Memory[pc + 1] = second_byte
+	c.Memory[pc] = u8(raw >> 8)
+	c.Memory[pc + 1] = u8(raw)
 
 	return nil
 }
@@ -109,6 +106,26 @@ decode_ALU_instruction :: proc(
 		return Decoded_Instruction{type = .div, instruction = i}, nil
 	case 0b0100:
 		return Decoded_Instruction{type = .mod, instruction = i}, nil
+	case 0b0101:
+		return Decoded_Instruction{type = .and, instruction = i}, nil
+	case 0b0110:
+		return Decoded_Instruction{type = .or, instruction = i}, nil
+	case 0b0111:
+		return Decoded_Instruction{type = .xor, instruction = i}, nil
+	case 0b1000:
+		return Decoded_Instruction{type = .shl, instruction = i}, nil
+	case 0b1001:
+		return Decoded_Instruction{type = .shr, instruction = i}, nil
+	case 0b1010:
+		return Decoded_Instruction{type = .min, instruction = i}, nil
+	case 0b1011:
+		return Decoded_Instruction{type = .max, instruction = i}, nil
+	case 0b1100:
+		return Decoded_Instruction{type = .not, instruction = i}, nil
+	case 0b1101:
+		return Decoded_Instruction{type = .lnot, instruction = i}, nil
+	case 0b1110:
+		return Decoded_Instruction{type = .neg, instruction = i}, nil
 	case 0b1111:
 		return Decoded_Instruction{type = .imm, instruction = i}, nil
 
@@ -131,8 +148,8 @@ decode_instruction :: proc(
 	instruction := cast(Instruction)instruction_bytes
 
 	switch instruction.first_nibble {
-	case 0x0:
 	// misc
+	case 0x0:
 	case 0x1:
 		return decode_ALU_instruction(instruction) or_return, nil
 	// stack
@@ -164,16 +181,18 @@ check_overflow :: proc(
 	bool,
 	Execution_Error,
 ) {
-	f := i64(first_operand)
-	s := i64(second_operand)
+	f := i128(first_operand)
+	s := i128(second_operand)
 
-	evaluation: i64
+	evaluation: i128
 
 	#partial switch op {
 	case .add:
 		evaluation = f + s
 	case .sub:
+		evaluation = f + s
 	case .mul:
+		evaluation = f * s
 	case .div:
 		if second_operand == 0 {
 			log.error(
@@ -234,7 +253,6 @@ execute_mul :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 
 	first_operand := c.Registers[i.instruction.third_nibble]
 	second_operand := c.Registers[i.instruction.fourth_nibble]
-	overflow := i64(first_operand) * i64(second_operand)
 
 	c.overflow_flag = check_overflow(first_operand, second_operand, .mul) or_return
 
@@ -265,7 +283,6 @@ execute_div :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	} else {
 		first_operand := c.Registers[i.instruction.third_nibble]
 		second_operand := c.Registers[i.instruction.fourth_nibble]
-		overflow := i64(first_operand) / i64(second_operand)
 
 		c.overflow_flag = check_overflow(first_operand, second_operand, .div) or_return
 
@@ -423,10 +440,18 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		c.Registers[assignment_register] = first_operand * next_word
 		return nil
 	case .div:
+		if next_word == 0 {
+			c.overflow_flag = true
+			return nil
+		}
 		check_overflow(first_operand, next_word, .div) or_return
 		c.Registers[assignment_register] = first_operand / next_word
 		return nil
 	case .mod:
+		if next_word == 0 {
+			c.overflow_flag = true
+			return nil
+		}
 		check_overflow(first_operand, next_word, .mod) or_return
 		c.Registers[assignment_register] = first_operand % next_word
 		return nil
@@ -449,7 +474,7 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		c.Registers[assignment_register] = min(first_operand, next_word)
 		return nil
 	case .max:
-		c.Registers[assignment_register] = max(first_operand, i16(next_word))
+		c.Registers[assignment_register] = max(first_operand, next_word)
 		return nil
 	case .not:
 		c.error_flag = true
@@ -461,7 +486,7 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 			},
 		)
 		return nil
-	case .l_not:
+	case .lnot:
 		c.error_flag = true
 		append(
 			&c.error_info,
@@ -537,7 +562,7 @@ execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Compute
 	case .not:
 		execute_bitwise_not(c, i)
 		return nil
-	case .l_not:
+	case .lnot:
 		execute_logical_not(c, i)
 		return nil
 	case .neg:
@@ -552,7 +577,6 @@ execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Compute
 	return .Failed
 }
 
-// TODO: I'm not sure about this union of enums match thing...
 execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
 	switch v in i.type {
 	case ALU_Instruction:

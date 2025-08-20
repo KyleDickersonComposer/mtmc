@@ -150,7 +150,7 @@ ALU_Instruction :: enum {
 	min,
 	max,
 	not,
-	l_not,
+	lnot,
 	neg,
 	imm,
 }
