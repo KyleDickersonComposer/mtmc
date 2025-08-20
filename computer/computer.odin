@@ -38,7 +38,6 @@ read_next_byte :: proc(c: ^Computer) -> u8 {
 	return first_byte
 }
 
-
 set_next_word :: proc(c: ^Computer, value: i16, pc_offset: i16) {
 	pc := c.Registers[Register.pc] + pc_offset
 
@@ -57,6 +56,7 @@ set_word_at_memory_address :: proc(c: ^Computer, address: u16, value: i16, offse
 	second_byte := u8(value)
 
 	if (address + offset) >= len(c.Memory) {
+		c.error_flag = true
 		append(
 			&c.error_info,
 			Debug_Error_Info {
@@ -77,6 +77,7 @@ set_byte_at_memory_address :: proc(c: ^Computer, address: u16, value: i16, offse
 	first_byte := u8(value >> 8)
 
 	if (address + offset) >= len(c.Memory) {
+		c.error_flag = true
 		append(
 			&c.error_info,
 			Debug_Error_Info {
@@ -190,7 +191,7 @@ decode_ALU_instruction :: proc(
 		return {type = .imm, instruction = i}, nil
 	}
 
-	log.error("invalid ALU instruction second nibble:", i.second_nibble)
+	log.errorf("invalid ALU instruction: %b", i)
 	return {}, .Invalid_ALU_Instruction
 }
 
@@ -221,7 +222,7 @@ decode_stack_instruction :: proc(
 		return {type = .pushi, instruction = i}, nil
 	}
 
-	log.error("invalid stack instruction:", i)
+	log.errorf("invalid stack instruction: %b", i)
 	return {}, .Invalid_Stack_Instruction
 }
 
@@ -231,7 +232,6 @@ decode_test_instruction :: proc(
 	Decoded_Instruction,
 	Instruction_Decoding_Error,
 ) {
-
 	switch i.second_nibble {
 	case 0b0000:
 		return {type = .eq, instruction = i}, nil
@@ -259,7 +259,7 @@ decode_test_instruction :: proc(
 		return {type = .ltei, instruction = i}, nil
 	}
 
-	log.error("invalid test instruction:", i)
+	log.errorf("invalid test instruction: %b", i)
 	return {}, .Invalid_Test_Instruction
 }
 
@@ -282,7 +282,7 @@ decode_load_store_register_instruction :: proc(
 		return {type = .lbr, instruction = i}, nil
 	}
 
-	log.error("invalid load_store_register instruction", i)
+	log.errorf("invalid load_store_register instruction: %b", i)
 	return {}, .Invalid_Load_Store_Register_Instruction
 }
 
@@ -315,7 +315,7 @@ decode_load_store_instruction :: proc(
 		return {type = .li, instruction = i}, nil
 	}
 
-	log.error("invalid load_store instruction", i)
+	log.errorf("invalid load_store instruction: %b", i)
 	return {}, .Invalid_Load_Store_Instruction
 }
 
@@ -338,7 +338,7 @@ decode_jump_instruction :: proc(
 		return {type = .jal, instruction = i}, nil
 	}
 
-	log.error("invalid jump instruction", i)
+	log.errorf("invalid jump instruction: %b", i)
 	return {}, .Invalid_Jump_Instruction
 }
 
@@ -369,7 +369,7 @@ decode_misc_instruction :: proc(
 		return {type = .nop, instruction = i}, nil
 	}
 
-	log.error("invalid misc instruction", i)
+	log.errorf("invalid misc instruction: %b", i)
 	return {}, .Invalid_Misc_Instruction
 }
 
@@ -661,7 +661,7 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		return nil
 	case .div:
 		if next_word == 0 {
-			c.overflow_flag = true
+			c.error_flag = true
 			return nil
 		}
 		check_overflow(first_operand, next_word, .div) or_return
@@ -669,7 +669,7 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		return nil
 	case .mod:
 		if next_word == 0 {
-			c.overflow_flag = true
+			c.error_flag = true
 			return nil
 		}
 		check_overflow(first_operand, next_word, .mod) or_return
@@ -787,28 +787,28 @@ execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Executi
 }
 
 execute_push :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := i.instruction.fourth_nibble
+	sp := c.Registers[i.instruction.fourth_nibble]
 
 	c.Registers[sp] += -2
 
 	operand := c.Registers[i.instruction.third_nibble]
 
-	push_word_at_stack_address(c, sp, operand, 0)
+	push_word_at_stack_address(c, u16(sp), operand, 0)
 }
 
 execute_pop :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := i.instruction.fourth_nibble
+	sp := c.Registers[i.instruction.fourth_nibble]
 	assignment_register := i.instruction.third_nibble
 
-	c.Registers[assignment_register] = read_word_at_stack_address(c, sp, 0)
+	c.Registers[assignment_register] = read_word_at_stack_address(c, u16(sp), 0)
 
 	c.Registers[sp] += 2
 }
 
 execute_dup :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := i.instruction.fourth_nibble
+	sp := c.Registers[i.instruction.fourth_nibble]
 
-	top_word := read_word_at_stack_address(c, u16(c.Registers[sp]), 0)
+	top_word := read_word_at_stack_address(c, u16(sp), 0)
 
 	c.Registers[sp] += -2
 
@@ -818,7 +818,7 @@ execute_dup :: proc(c: ^Computer, i: Decoded_Instruction) {
 }
 
 execute_swap :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := i.instruction.fourth_nibble
+	sp := c.Registers[i.instruction.fourth_nibble]
 
 	if c.Registers[sp] + 2 >= len(c.Memory) {
 		c.error_flag = true
@@ -834,22 +834,22 @@ execute_swap :: proc(c: ^Computer, i: Decoded_Instruction) {
 		return
 	}
 
-	temp := read_word_at_stack_address(c, sp, 0)
+	temp := read_word_at_stack_address(c, u16(sp), 0)
 	bottom_word := (c.Registers[sp + 1] << 8) | c.Registers[sp + 2]
 
-	push_word_at_stack_address(c, sp, i16(bottom_word), 0)
+	push_word_at_stack_address(c, u16(sp), i16(bottom_word), 0)
 
-	push_word_at_stack_address(c, sp + 2, temp, 0)
+	push_word_at_stack_address(c, u16(sp + 2), temp, 0)
 }
 
 execute_drop :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := i.instruction.fourth_nibble
+	sp := c.Registers[i.instruction.fourth_nibble]
 
 	c.Registers[Register.sp] += 2
 }
 
 execute_over :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := i.instruction.fourth_nibble
+	sp := c.Registers[i.instruction.fourth_nibble]
 
 	if c.Registers[sp] + 2 >= len(c.Memory) {
 		c.error_flag = true
@@ -865,16 +865,16 @@ execute_over :: proc(c: ^Computer, i: Decoded_Instruction) {
 		return
 	}
 
-	over_copy := read_word_at_stack_address(c, sp + 2, 0)
+	over_copy := read_word_at_stack_address(c, u16(sp + 2), 0)
 
 	c.Registers[sp] += -2
 	new_sp := c.Registers[sp]
 
-	push_word_at_stack_address(c, sp, over_copy, 0)
+	push_word_at_stack_address(c, u16(sp), over_copy, 0)
 }
 
 execute_rot :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := i.instruction.fourth_nibble
+	sp := c.Registers[i.instruction.fourth_nibble]
 
 	if c.Registers[sp] + 4 > len(c.Memory) {
 		c.error_flag = true
@@ -890,16 +890,16 @@ execute_rot :: proc(c: ^Computer, i: Decoded_Instruction) {
 		return
 	}
 
-	temp := read_word_at_stack_address(c, sp + 4, 0)
+	temp := read_word_at_stack_address(c, u16(sp + 4), 0)
 
-	push_word_at_stack_address(c, sp + 4, read_word_at_stack_address(c, sp + 2, 0), 0)
-	push_word_at_stack_address(c, sp + 2, read_word_at_stack_address(c, sp, 0), 0)
-	push_word_at_stack_address(c, sp, temp, 0)
+	push_word_at_stack_address(c, u16(sp + 4), read_word_at_stack_address(c, u16(sp + 2), 0), 0)
+	push_word_at_stack_address(c, u16(sp + 2), read_word_at_stack_address(c, u16(sp), 0), 0)
+	push_word_at_stack_address(c, u16(sp), temp, 0)
 }
 
 execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
-	sp := i.instruction.fourth_nibble
-	op := i.instruction.third_nibble
+	sp := c.Registers[i.instruction.fourth_nibble]
+	op := c.Registers[i.instruction.third_nibble]
 
 	if c.Registers[sp] + 2 >= len(c.Memory) {
 		c.error_flag = true
@@ -915,66 +915,66 @@ execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 		return nil
 	}
 
-	first_operand := read_word_at_stack_address(c, sp, 0)
-	second_operand := read_word_at_stack_address(c, sp + 2, 0)
+	first_operand := read_word_at_stack_address(c, u16(sp), 0)
+	second_operand := read_word_at_stack_address(c, u16(sp + 2), 0)
 
 	switch op {
 	// add
 	case 0b0000:
 		check_overflow(first_operand, second_operand, .add) or_return
-		push_word_at_stack_address(c, sp, first_operand + second_operand, 0)
+		push_word_at_stack_address(c, u16(sp), first_operand + second_operand, 0)
 		return nil
 	//sub
 	case 0b0001:
 		check_overflow(first_operand, second_operand, .sub) or_return
-		push_word_at_stack_address(c, sp, first_operand - second_operand, 0)
+		push_word_at_stack_address(c, u16(sp), first_operand - second_operand, 0)
 		return nil
 	// mul
 	case 0b0010:
 		check_overflow(first_operand, second_operand, .mul) or_return
-		push_word_at_stack_address(c, sp, first_operand * second_operand, 0)
+		push_word_at_stack_address(c, u16(sp), first_operand * second_operand, 0)
 		return nil
 	// div
 	case 0b0011:
 		check_overflow(first_operand, second_operand, .div) or_return
-		push_word_at_stack_address(c, sp, first_operand / second_operand, 0)
+		push_word_at_stack_address(c, u16(sp), first_operand / second_operand, 0)
 		return nil
 	// mod
 	case 0b0100:
 		check_overflow(first_operand, second_operand, .mod) or_return
-		push_word_at_stack_address(c, sp, first_operand % second_operand, 0)
+		push_word_at_stack_address(c, u16(sp), first_operand % second_operand, 0)
 		return nil
 	// add
 	case 0b0101:
-		push_word_at_stack_address(c, sp, first_operand & second_operand, 0)
+		push_word_at_stack_address(c, u16(sp), first_operand & second_operand, 0)
 		return nil
 	// or
 	case 0b0110:
-		push_word_at_stack_address(c, sp, first_operand | second_operand, 0)
+		push_word_at_stack_address(c, u16(sp), first_operand | second_operand, 0)
 		return nil
 	// xor
 	case 0b0111:
-		push_word_at_stack_address(c, sp, first_operand ~ second_operand, 0)
+		push_word_at_stack_address(c, u16(sp), first_operand ~ second_operand, 0)
 		return nil
 	// shl
 	case 0b1000:
-		push_word_at_stack_address(c, sp, first_operand << u16(second_operand), 0)
+		push_word_at_stack_address(c, u16(sp), first_operand << u16(second_operand), 0)
 		return nil
 	// shr
 	case 0b1001:
-		push_word_at_stack_address(c, sp, first_operand >> u16(second_operand), 0)
+		push_word_at_stack_address(c, u16(sp), first_operand >> u16(second_operand), 0)
 		return nil
 	// min
 	case 0b1010:
-		push_word_at_stack_address(c, sp, min(first_operand, second_operand), 0)
+		push_word_at_stack_address(c, u16(sp), min(first_operand, second_operand), 0)
 		return nil
 	// max
 	case 0b1011:
-		push_word_at_stack_address(c, sp, max(first_operand, second_operand), 0)
+		push_word_at_stack_address(c, u16(sp), max(first_operand, second_operand), 0)
 		return nil
 	// not
 	case 0b1100:
-		push_word_at_stack_address(c, sp, ~first_operand, 0)
+		push_word_at_stack_address(c, u16(sp), ~first_operand, 0)
 		return nil
 	// lnot
 	case 0b1101:
@@ -982,11 +982,11 @@ execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 		if first_operand == 0 {
 			value = 1
 		}
-		push_word_at_stack_address(c, sp, i16(value), 0)
+		push_word_at_stack_address(c, u16(sp), i16(value), 0)
 		return nil
 	// neg
 	case 0b1110:
-		push_word_at_stack_address(c, sp, -first_operand, 0)
+		push_word_at_stack_address(c, u16(sp), -first_operand, 0)
 		return nil
 	// imm
 	case 0b1111:
@@ -1249,6 +1249,7 @@ execute_load_store_register_instruction :: proc(
 	return .Failed_To_Execute_Instruction
 }
 
+// TODO: need to handle dr register book keeping?
 execute_load_word_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	assignment_register := i.instruction.third_nibble
 	address := read_next_word(c)
