@@ -19,81 +19,72 @@ shutdown_computer :: proc(c: ^Computer) {
 	delete(c.error_info)
 }
 
-set_word :: proc(c: ^Computer, value: i16, pc_offset: i16) -> Computer_Error {
+set_next_word :: proc(c: ^Computer, value: i16, pc_offset: i16) {
 	pc := c.Registers[Register.pc] + pc_offset
 
 	raw := u16(value)
 
 	c.Memory[pc] = u8(raw >> 8)
 	c.Memory[pc + 1] = u8(raw)
-
-	return nil
 }
 
-match_register :: proc(register_as_byte: u8) -> (Register, Computer_Error) {
-	switch register_as_byte {
-	case 0:
-		return .t0, nil
-	case 1:
-		return .t1, nil
-	case 2:
-		return .t2, nil
-	case 3:
-		return .t3, nil
-	case 4:
-		return .t4, nil
-	case 5:
-		return .t5, nil
-	case 6:
-		return .a0, nil
-	case 7:
-		return .a1, nil
-	case 8:
-		return .a2, nil
-	case 9:
-		return .a3, nil
-	case 10:
-		return .rv, nil
-	case 11:
-		return .ra, nil
-	case 12:
-		return .fp, nil
-	case 13:
-		return .sp, nil
-	case 14:
-		return .bp, nil
-	case 15:
-		return .pc, nil
-	case 16:
-		return .ir, nil
-	case 17:
-		return .dr, nil
-	case 18:
-		return .cb, nil
-	case 19:
-		return .db, nil
-	case 20:
-		return .io, nil
+check_is_odd :: proc(value: u16) -> bool {
+	return value % 2 == 0
+}
 
-	case:
-		log.error(
-			"invalid register index: as bytes=%b, as hex=%x, as decimal=%d",
-			register_as_byte,
-			register_as_byte,
-			register_as_byte,
+push_word_at_stack_address :: proc(c: ^Computer, sp: u16, value: i16, sp_offset: u16) {
+	if check_is_odd(sp_offset) {
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf(
+					"offset the stack pointer by an odd number: %d, at sp:%d",
+					sp_offset,
+					c.Registers[Register.sp],
+				),
+			},
 		)
-		return .t0, .Invalid_Encoding_Of_Register_Index
 	}
 
-	log.error("hit failed in match_register procedure")
-	return .t0, .Failed
+	raw := u16(value)
+
+	c.Memory[sp - sp_offset] = u8(raw)
+	c.Memory[sp - sp_offset - 1] = u8(raw >> 8)
+}
+
+read_word_at_stack_address :: proc(c: ^Computer, sp: u16, sp_offset: u16) -> i16 {
+	if check_is_odd(sp_offset) {
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf(
+					"offset the stack pointer by an odd number: %d, at sp:%d",
+					sp_offset,
+					c.Registers[Register.sp],
+				),
+			},
+		)
+	}
+
+	first_byte := c.Memory[sp - sp_offset - 1]
+	second_byte := c.Memory[sp - sp_offset]
+
+	word := (u16(first_byte) << 8) | u16(second_byte)
+
+	return i16(word)
 }
 
 decode_ALU_instruction :: proc(
 	i: Instruction,
 ) -> (
 	inst: Decoded_Instruction,
-	err: Computer_Error,
+	err: Instruction_Decoding_Error,
 ) {
 	switch i.second_nibble {
 	case 0b0000:
@@ -128,15 +119,43 @@ decode_ALU_instruction :: proc(
 		return Decoded_Instruction{type = .neg, instruction = i}, nil
 	case 0b1111:
 		return Decoded_Instruction{type = .imm, instruction = i}, nil
-
-	case:
-		log.errorf("invalid instruction: %b", i.second_nibble)
-		return {}, .Invalid_ALU_Instruction
 	}
 
+	log.error("invalid ALU instruction second nibble:", i.second_nibble)
+	return {}, .Invalid_ALU_Instruction
+}
 
-	log.error("hit failed in decode_ALU_instruction procedure")
-	return {}, .Failed
+decode_stack_instruction :: proc(
+	i: Instruction,
+) -> (
+	Decoded_Instruction,
+	Instruction_Decoding_Error,
+) {
+	op := i.second_nibble
+
+	switch op {
+	case 0b0000:
+		return Decoded_Instruction{type = .push, instruction = i}, nil
+	case 0b0001:
+		return Decoded_Instruction{type = .pop, instruction = i}, nil
+	case 0b0010:
+		return Decoded_Instruction{type = .dup, instruction = i}, nil
+	case 0b0011:
+		return Decoded_Instruction{type = .swap, instruction = i}, nil
+	case 0b0100:
+		return Decoded_Instruction{type = .drop, instruction = i}, nil
+	case 0b0101:
+		return Decoded_Instruction{type = .over, instruction = i}, nil
+	case 0b0110:
+		return Decoded_Instruction{type = .rot, instruction = i}, nil
+	case 0b0111:
+		return Decoded_Instruction{type = .sop, instruction = i}, nil
+	case 0b1111:
+		return Decoded_Instruction{type = .pushi, instruction = i}, nil
+	}
+
+	log.error("invalid stack instruction", i)
+	return {}, .Invalid_Stack_Instruction
 }
 
 decode_instruction :: proc(
@@ -154,6 +173,7 @@ decode_instruction :: proc(
 		return decode_ALU_instruction(instruction) or_return, nil
 	// stack
 	case 0x2:
+		return decode_stack_instruction(instruction) or_return, nil
 	// test
 	case 0x3:
 	// load/store register
@@ -164,13 +184,10 @@ decode_instruction :: proc(
 	case 0x9:
 	// jump
 	case 0xC ..= 0xF:
-	case:
-		log.errorf("expected a valid instruction, got: %b", instruction_bytes)
-		return {}, .Invalid_Top_Nibble
 	}
 
-	log.error("hit failed in decode_instruction procedure")
-	return {}, .Failed
+	log.errorf("expected a valid instruction, got: %b", instruction_bytes)
+	return {}, .Invalid_Top_Nibble
 }
 
 check_overflow :: proc(
@@ -194,21 +211,8 @@ check_overflow :: proc(
 	case .mul:
 		evaluation = f * s
 	case .div:
-		if second_operand == 0 {
-			log.error(
-				"hit weird edge case where you are checking an overflow for a division operation that should already have returned in the function call before this one",
-			)
-			return false, nil
-		}
 		evaluation = f / s
-
 	case .mod:
-		if second_operand == 0 {
-			log.error(
-				"hit weird edge case where you are checking an overflow for a modulo operation that should already have returned in the function call before this one",
-			)
-			return false, nil
-		}
 		evaluation = f % s
 	case:
 		log.error("invalid overflow check on operation that can't overflow, op:", op)
@@ -265,13 +269,14 @@ execute_div :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	assignment_register := i.instruction.third_nibble
 
 	if i.instruction.fourth_nibble == 0 {
-		c.error_flag = true
-
 		pc := c.Registers[Register.pc]
+
+		c.error_flag = true
 		append(
 			&c.error_info,
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
 				error_message = fmt.aprintf(
 					"divide by zero at pc: 0x%04X (instruction %d)",
 					pc,
@@ -296,13 +301,14 @@ execute_mod :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	assignment_register := i.instruction.third_nibble
 
 	if i.instruction.fourth_nibble == 0 {
-		c.error_flag = true
-
 		pc := c.Registers[Register.pc]
+
+		c.error_flag = true
 		append(
 			&c.error_info,
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
 				error_message = fmt.aprintf(
 					"mod by zero at pc: 0x%04X (instruction %d)",
 					pc,
@@ -413,7 +419,7 @@ execute_negate :: proc(c: ^Computer, i: Decoded_Instruction) {
 }
 
 
-execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
+execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	assignment_register := i.instruction.third_nibble
 
 	first_operand := c.Registers[i.instruction.third_nibble]
@@ -476,33 +482,17 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 	case .max:
 		c.Registers[assignment_register] = max(first_operand, next_word)
 		return nil
-	case .not:
+	case .not, .lnot, .neg:
 		c.error_flag = true
 		append(
 			&c.error_info,
 			Debug_Error_Info {
 				pc = pc,
-				error_message = fmt.aprintf("unary operation in immediate mode are invalid"),
-			},
-		)
-		return nil
-	case .lnot:
-		c.error_flag = true
-		append(
-			&c.error_info,
-			Debug_Error_Info {
-				pc = pc,
-				error_message = fmt.aprintf("unary operation in immediate mode are invalid"),
-			},
-		)
-		return nil
-	case .neg:
-		c.error_flag = true
-		append(
-			&c.error_info,
-			Debug_Error_Info {
-				pc = pc,
-				error_message = fmt.aprintf("unary operation in immediate mode are invalid"),
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf(
+					"unary operations in immediate mode are invalid: %v",
+					i,
+				),
 			},
 		)
 		return nil
@@ -511,12 +501,12 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		return .Invalid_Operation_In_Immediate_Mode_ALU_Instruction
 	}
 
-	log.error("hit failed in execute_immediate_ALU_instruction procedure")
-	return .Failed
+	log.error("invalid immediate mode ALU instruction:", i)
+	return .Invalid_Operation_In_Immediate_Mode_ALU_Instruction
 }
 
 
-execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
+execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	// NOTE: reseting flags numerical flags here
 	c.nan_flag = false
 	c.overflow_flag = false
@@ -573,17 +563,270 @@ execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Compute
 		return nil
 	}
 
-	log.error("hit failed in execute_binary_instruction procedure")
-	return .Failed
+	log.error("invalid ALU instruction:", i)
+	return .Failed_To_Execute_Instruction
+}
+
+execute_push :: proc(c: ^Computer, i: Decoded_Instruction) {
+	sp := i.instruction.fourth_nibble
+
+	c.Registers[sp] += -2
+
+	operand := c.Registers[i.instruction.third_nibble]
+
+	push_word_at_stack_address(c, sp, operand, 0)
+}
+
+execute_pop :: proc(c: ^Computer, i: Decoded_Instruction) {
+	sp := i.instruction.fourth_nibble
+	assignment_register := i.instruction.third_nibble
+
+	c.Registers[assignment_register] = read_word_at_stack_address(c, sp, 0)
+
+	c.Registers[sp] += 2
+}
+
+execute_dup :: proc(c: ^Computer, i: Decoded_Instruction) {
+	sp := i.instruction.fourth_nibble
+
+	top_word := read_word_at_stack_address(c, u16(c.Registers[sp]), 0)
+
+	c.Registers[sp] += -2
+
+	new_sp := c.Registers[sp]
+
+	push_word_at_stack_address(c, u16(new_sp), top_word, 0)
+}
+
+execute_swap :: proc(c: ^Computer, i: Decoded_Instruction) {
+	sp := i.instruction.fourth_nibble
+
+	if c.Registers[sp] + 2 > len(c.Memory) {
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("swap operation read memory that was out of bounds"),
+			},
+		)
+
+		return
+	}
+
+	temp := read_word_at_stack_address(c, sp, 0)
+	bottom_word := (c.Registers[sp + 1] << 8) | c.Registers[sp + 2]
+
+	push_word_at_stack_address(c, sp, i16(bottom_word), 0)
+
+	push_word_at_stack_address(c, sp + 2, temp, 0)
+}
+
+execute_drop :: proc(c: ^Computer, i: Decoded_Instruction) {
+	sp := i.instruction.fourth_nibble
+
+	c.Registers[Register.sp] += 2
+}
+
+execute_over :: proc(c: ^Computer, i: Decoded_Instruction) {
+	sp := i.instruction.fourth_nibble
+
+	if c.Registers[sp] + 2 > len(c.Memory) {
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("over operation read memory that was out of bounds"),
+			},
+		)
+
+		return
+	}
+
+	over_copy := read_word_at_stack_address(c, sp + 2, 0)
+
+	c.Registers[sp] += -2
+	new_sp := c.Registers[sp]
+
+	push_word_at_stack_address(c, sp, over_copy, 0)
+}
+
+execute_rot :: proc(c: ^Computer, i: Decoded_Instruction) {
+	sp := i.instruction.fourth_nibble
+
+	if c.Registers[sp] + 4 > len(c.Memory) {
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("rot operation read memory that was out of bounds"),
+			},
+		)
+
+		return
+	}
+
+	temp := read_word_at_stack_address(c, sp + 4, 0)
+
+	push_word_at_stack_address(c, sp + 4, read_word_at_stack_address(c, sp + 2, 0), 0)
+	push_word_at_stack_address(c, sp + 2, read_word_at_stack_address(c, sp, 0), 0)
+	push_word_at_stack_address(c, sp, temp, 0)
+}
+
+execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	sp := i.instruction.fourth_nibble
+	op := i.instruction.third_nibble
+
+	if c.Registers[sp] + 2 > len(c.Memory) {
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("sop operation read memory that was out of bounds"),
+			},
+		)
+
+		return nil
+	}
+
+	first_operand := read_word_at_stack_address(c, sp, 0)
+	second_operand := read_word_at_stack_address(c, sp + 2, 0)
+
+	switch op {
+	// add
+	case 0b0000:
+		check_overflow(first_operand, second_operand, .add) or_return
+		push_word_at_stack_address(c, sp, first_operand + second_operand, 0)
+		return nil
+	//sub
+	case 0b0001:
+		check_overflow(first_operand, second_operand, .sub) or_return
+		push_word_at_stack_address(c, sp, first_operand - second_operand, 0)
+		return nil
+	// mul
+	case 0b0010:
+		check_overflow(first_operand, second_operand, .mul) or_return
+		push_word_at_stack_address(c, sp, first_operand * second_operand, 0)
+		return nil
+	// div
+	case 0b0011:
+		check_overflow(first_operand, second_operand, .div) or_return
+		push_word_at_stack_address(c, sp, first_operand / second_operand, 0)
+		return nil
+	// mod
+	case 0b0100:
+		check_overflow(first_operand, second_operand, .mod) or_return
+		push_word_at_stack_address(c, sp, first_operand % second_operand, 0)
+		return nil
+	// add
+	case 0b0101:
+		push_word_at_stack_address(c, sp, first_operand & second_operand, 0)
+		return nil
+	// or
+	case 0b0110:
+		push_word_at_stack_address(c, sp, first_operand | second_operand, 0)
+		return nil
+	// xor
+	case 0b0111:
+		push_word_at_stack_address(c, sp, first_operand ~ second_operand, 0)
+		return nil
+	// shl
+	case 0b1000:
+		push_word_at_stack_address(c, sp, first_operand << u16(second_operand), 0)
+		return nil
+	// shr
+	case 0b1001:
+		push_word_at_stack_address(c, sp, first_operand >> u16(second_operand), 0)
+		return nil
+	// min
+	case 0b1010:
+		push_word_at_stack_address(c, sp, min(first_operand, second_operand), 0)
+		return nil
+	// max
+	case 0b1011:
+		push_word_at_stack_address(c, sp, max(first_operand, second_operand), 0)
+		return nil
+	// not
+	case 0b1100:
+		push_word_at_stack_address(c, sp, ~first_operand, 0)
+		return nil
+	// lnot
+	case 0b1101:
+		value := 0
+		if first_operand == 0 {
+			value = 1
+		}
+		push_word_at_stack_address(c, sp, i16(value), 0)
+		return nil
+	// neg
+	case 0b1110:
+		push_word_at_stack_address(c, sp, -first_operand, 0)
+		return nil
+	// imm
+	case 0b1111:
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("invalid sop operator imm"),
+			},
+		)
+		return nil
+
+	}
+
+	log.error("failed to exectue sop:", i)
+	return .Failed_To_Execute_Instruction
+}
+
+execute_pushi :: proc(c: ^Computer, i: Decoded_Instruction) {
+	sp := c.Registers[i.instruction.fourth_nibble]
+	pc := c.Registers[Register.pc]
+
+	c.Registers[sp] += -2
+
+	new_sp := c.Registers[sp]
+
+	raw := u16(c.Memory[pc + 2]) << 8 | u16(c.Memory[pc + 3])
+	next_word := i16(raw)
+
+	push_word_at_stack_address(c, u16(new_sp), next_word, 0)
+}
+
+execute_stack_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+
+	switch i.type {
+	case .push:
+		execute_push(c, i)
+		return nil
+	case .pop:
+		execute_pop(c, i)
+		return nil
+	}
+
+	log.error("invalid stack instruction:", i)
+	return .Failed_To_Execute_Instruction
 }
 
 execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
 	switch v in i.type {
 	case ALU_Instruction:
-		execute_ALU_instruction(c, i)
+		execute_ALU_instruction(c, i) or_return
+		return nil
+	case Stack_Instruction:
+		execute_stack_instruction(c, i) or_return
 		return nil
 	}
 
-	log.error("hit failed in execute_instruction procedure")
-	return .Failed
+	log.error("failed to execute instruction:", i)
+	return .Failed_To_Execute_Instruction
 }

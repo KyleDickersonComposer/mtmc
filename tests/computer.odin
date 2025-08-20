@@ -121,7 +121,7 @@ imm_add_instruction :: proc(t: ^testing.T) {
 	c := com.Computer{}
 	c.Registers[com.Register.t0] = 42
 
-	com.set_word(&c, 27, 2)
+	com.set_next_word(&c, 27, 2)
 
 
 	instruction_as_bytes: u16 = 0b0001_1111_0000_0000

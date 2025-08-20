@@ -6,9 +6,9 @@ Computer_Error :: union {
 }
 
 Instruction_Decoding_Error :: enum {
-	Failed,
 	Invalid_Top_Nibble,
 	Invalid_ALU_Instruction,
+	Invalid_Stack_Instruction,
 	Invalid_Encoding_Of_Register_Index,
 	Invalid_Decoded_Instruction,
 }
@@ -17,6 +17,7 @@ Execution_Error :: enum {
 	Invalid_Operation_In_Immediate_Mode_ALU_Instruction,
 	Invalid_Overflow_Check_On_Operation_That_Will_Not_Overflow,
 	Failed_To_Set_Word,
+	Failed_To_Execute_Instruction,
 }
 
 Computer :: struct {
@@ -31,6 +32,7 @@ Computer :: struct {
 
 Debug_Error_Info :: struct {
 	pc:            i16,
+	sp:            i16,
 	error_message: string,
 }
 
@@ -90,16 +92,17 @@ Syscall :: enum {
 	error    = 0xFF,
 }
 
-// NOTE: reversed field order because bif_fields is RTL?
+// NOTE: reversed field order because bit fields are RTL?
 Instruction :: bit_field u16 {
-	fourth_nibble: u8 | 4,
-	third_nibble:  u8 | 4,
-	second_nibble: u8 | 4,
-	first_nibble:  u8 | 4,
+	fourth_nibble: u16 | 4,
+	third_nibble:  u16 | 4,
+	second_nibble: u16 | 4,
+	first_nibble:  u16 | 4,
 }
 
 Instruction_Kind :: union {
 	ALU_Instruction,
+	Stack_Instruction,
 }
 
 Decoded_Instruction :: struct {
@@ -110,7 +113,7 @@ Decoded_Instruction :: struct {
 Two_Word_Instruction :: enum {
 	mcp,
 	imm,
-	debug, // this is weird one (probably faking it is fine?)
+	debug,
 	pushi,
 	eqi,
 	neqi,
@@ -130,11 +133,6 @@ Miscellaneous_Instruction :: enum {
 	debug,
 	nop = 0b1111,
 }
-
-Overflowable_Instruction :: enum {
-	sop,
-}
-
 
 ALU_Instruction :: enum {
 	add,
