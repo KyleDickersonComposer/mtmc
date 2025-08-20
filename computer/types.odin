@@ -10,6 +10,10 @@ Instruction_Decoding_Error :: enum {
 	Invalid_ALU_Instruction,
 	Invalid_Stack_Instruction,
 	Invalid_Test_Instruction,
+	Invalid_Load_Store_Register_Instruction,
+	Invalid_Load_Store_Instruction,
+	Invalid_Jump_Register_Instruction,
+	Invalid_Jump_Instruction,
 	Invalid_Encoding_Of_Register_Index,
 	Invalid_Decoded_Instruction,
 }
@@ -105,6 +109,10 @@ Instruction_Kind :: union {
 	ALU_Instruction,
 	Stack_Instruction,
 	Test_Instruction,
+	Load_Store_Register_Instruction,
+	Load_Store_Instruction,
+	Jump_Register_Instruction,
+	Jump_Instruction,
 }
 
 Decoded_Instruction :: struct {

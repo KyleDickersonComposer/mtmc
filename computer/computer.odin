@@ -205,6 +205,85 @@ decode_test_instruction :: proc(
 	return {}, .Invalid_Test_Instruction
 }
 
+decode_load_store_register_instruction :: proc(
+	i: Instruction,
+) -> (
+	Decoded_Instruction,
+	Instruction_Decoding_Error,
+) {
+	op := i.first_nibble & 0b11
+
+	switch op {
+	case 0b00:
+		return {type = .lwr, instruction = i}, nil
+	case 0b01:
+		return {type = .lbr, instruction = i}, nil
+	case 0b10:
+		return {type = .swr, instruction = i}, nil
+	case 0b11:
+		return {type = .lbr, instruction = i}, nil
+	}
+
+	log.error("invalid load_store_register instruction", i)
+	return {}, .Invalid_Load_Store_Register_Instruction
+}
+
+decode_load_store_instruction :: proc(
+	i: Instruction,
+) -> (
+	Decoded_Instruction,
+	Instruction_Decoding_Error,
+) {
+	op := i.second_nibble
+
+	switch op {
+	case 0b0000:
+		return {type = .lw, instruction = i}, nil
+	case 0b0001:
+		return {type = .lwo, instruction = i}, nil
+	case 0b0010:
+		return {type = .lb, instruction = i}, nil
+	case 0b0011:
+		return {type = .lbo, instruction = i}, nil
+	case 0b0100:
+		return {type = .sw, instruction = i}, nil
+	case 0b0101:
+		return {type = .swo, instruction = i}, nil
+	case 0b0110:
+		return {type = .sb, instruction = i}, nil
+	case 0b0111:
+		return {type = .sbo, instruction = i}, nil
+	case 0b1000:
+		return {type = .li, instruction = i}, nil
+	}
+
+	log.error("invalid load_store instruction", i)
+	return {}, .Invalid_Load_Store_Instruction
+}
+
+decode_jump_instruction :: proc(
+	i: Instruction,
+) -> (
+	Decoded_Instruction,
+	Instruction_Decoding_Error,
+) {
+	op := i.first_nibble
+
+	switch op {
+	case 0b0000:
+		return {type = .j, instruction = i}, nil
+	case 0b0001:
+		return {type = .jz, instruction = i}, nil
+	case 0b0010:
+		return {type = .jnz, instruction = i}, nil
+	case 0b0011:
+		return {type = .jal, instruction = i}, nil
+	}
+
+	log.error("invalid jump instruction", i)
+	return {}, .Invalid_Jump_Instruction
+}
+
 decode_instruction :: proc(
 	instruction_bytes: u16,
 ) -> (
@@ -224,12 +303,16 @@ decode_instruction :: proc(
 		return decode_test_instruction(instruction) or_return, nil
 	// load/store register
 	case 0x4 ..= 0x7:
+		return decode_load_store_register_instruction(instruction) or_return, nil
 	// load/store
 	case 0x8:
-	//jump register
+		return decode_load_store_instruction(instruction) or_return, nil
+	// jump register
 	case 0x9:
-	// jump
+		return {type = .jr, instruction = instruction}, nil
+	//jump
 	case 0xC ..= 0xF:
+		return decode_jump_instruction(instruction) or_return, nil
 	}
 
 	log.errorf("expected a valid instruction, got: %b", instruction_bytes)
@@ -1022,8 +1105,18 @@ execute_test_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execut
 	return .Failed_To_Execute_Instruction
 }
 
+execute_load_store_register_instruction :: proc(
+	c: ^Computer,
+	i: Decoded_Instruction,
+) -> Execution_Error {
+
+	log.error("invalid load_store_register instruction:", i)
+	return .Failed_To_Execute_Instruction
+}
+
 execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
-	switch v in i.type {
+	// TODO: Implement rest
+	#partial switch v in i.type {
 	case ALU_Instruction:
 		execute_ALU_instruction(c, i) or_return
 		return nil
@@ -1033,6 +1126,10 @@ execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Er
 	case Test_Instruction:
 		execute_test_instruction(c, i) or_return
 		return nil
+	case Load_Store_Register_Instruction:
+		execute_load_store_register_instruction(c, i) or_return
+		return nil
+
 	}
 
 	log.error("failed to execute instruction:", i)
