@@ -9,6 +9,7 @@ Instruction_Decoding_Error :: enum {
 	Invalid_Top_Nibble,
 	Invalid_ALU_Instruction,
 	Invalid_Stack_Instruction,
+	Invalid_Test_Instruction,
 	Invalid_Encoding_Of_Register_Index,
 	Invalid_Decoded_Instruction,
 }
@@ -103,6 +104,7 @@ Instruction :: bit_field u16 {
 Instruction_Kind :: union {
 	ALU_Instruction,
 	Stack_Instruction,
+	Test_Instruction,
 }
 
 Decoded_Instruction :: struct {

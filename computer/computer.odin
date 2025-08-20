@@ -19,6 +19,17 @@ shutdown_computer :: proc(c: ^Computer) {
 	delete(c.error_info)
 }
 
+read_next_word :: proc(c: ^Computer) -> i16 {
+	pc := c.Registers[Register.pc]
+
+	first_byte := c.Memory[pc + 2]
+	second_byte := c.Memory[pc + 3]
+
+	word := ((u16(first_byte) << 8) | u16(second_byte))
+
+	return i16(word)
+}
+
 set_next_word :: proc(c: ^Computer, value: i16, pc_offset: i16) {
 	pc := c.Registers[Register.pc] + pc_offset
 
@@ -88,37 +99,37 @@ decode_ALU_instruction :: proc(
 ) {
 	switch i.second_nibble {
 	case 0b0000:
-		return Decoded_Instruction{type = .add, instruction = i}, nil
+		return {type = .add, instruction = i}, nil
 	case 0b0001:
-		return Decoded_Instruction{type = .sub, instruction = i}, nil
+		return {type = .sub, instruction = i}, nil
 	case 0b0010:
-		return Decoded_Instruction{type = .mul, instruction = i}, nil
+		return {type = .mul, instruction = i}, nil
 	case 0b0011:
-		return Decoded_Instruction{type = .div, instruction = i}, nil
+		return {type = .div, instruction = i}, nil
 	case 0b0100:
-		return Decoded_Instruction{type = .mod, instruction = i}, nil
+		return {type = .mod, instruction = i}, nil
 	case 0b0101:
-		return Decoded_Instruction{type = .and, instruction = i}, nil
+		return {type = .and, instruction = i}, nil
 	case 0b0110:
-		return Decoded_Instruction{type = .or, instruction = i}, nil
+		return {type = .or, instruction = i}, nil
 	case 0b0111:
-		return Decoded_Instruction{type = .xor, instruction = i}, nil
+		return {type = .xor, instruction = i}, nil
 	case 0b1000:
-		return Decoded_Instruction{type = .shl, instruction = i}, nil
+		return {type = .shl, instruction = i}, nil
 	case 0b1001:
-		return Decoded_Instruction{type = .shr, instruction = i}, nil
+		return {type = .shr, instruction = i}, nil
 	case 0b1010:
-		return Decoded_Instruction{type = .min, instruction = i}, nil
+		return {type = .min, instruction = i}, nil
 	case 0b1011:
-		return Decoded_Instruction{type = .max, instruction = i}, nil
+		return {type = .max, instruction = i}, nil
 	case 0b1100:
-		return Decoded_Instruction{type = .not, instruction = i}, nil
+		return {type = .not, instruction = i}, nil
 	case 0b1101:
-		return Decoded_Instruction{type = .lnot, instruction = i}, nil
+		return {type = .lnot, instruction = i}, nil
 	case 0b1110:
-		return Decoded_Instruction{type = .neg, instruction = i}, nil
+		return {type = .neg, instruction = i}, nil
 	case 0b1111:
-		return Decoded_Instruction{type = .imm, instruction = i}, nil
+		return {type = .imm, instruction = i}, nil
 	}
 
 	log.error("invalid ALU instruction second nibble:", i.second_nibble)
@@ -131,31 +142,67 @@ decode_stack_instruction :: proc(
 	Decoded_Instruction,
 	Instruction_Decoding_Error,
 ) {
-	op := i.second_nibble
-
-	switch op {
+	switch i.second_nibble {
 	case 0b0000:
-		return Decoded_Instruction{type = .push, instruction = i}, nil
+		return {type = .push, instruction = i}, nil
 	case 0b0001:
-		return Decoded_Instruction{type = .pop, instruction = i}, nil
+		return {type = .pop, instruction = i}, nil
 	case 0b0010:
-		return Decoded_Instruction{type = .dup, instruction = i}, nil
+		return {type = .dup, instruction = i}, nil
 	case 0b0011:
-		return Decoded_Instruction{type = .swap, instruction = i}, nil
+		return {type = .swap, instruction = i}, nil
 	case 0b0100:
-		return Decoded_Instruction{type = .drop, instruction = i}, nil
+		return {type = .drop, instruction = i}, nil
 	case 0b0101:
-		return Decoded_Instruction{type = .over, instruction = i}, nil
+		return {type = .over, instruction = i}, nil
 	case 0b0110:
-		return Decoded_Instruction{type = .rot, instruction = i}, nil
+		return {type = .rot, instruction = i}, nil
 	case 0b0111:
-		return Decoded_Instruction{type = .sop, instruction = i}, nil
+		return {type = .sop, instruction = i}, nil
 	case 0b1111:
-		return Decoded_Instruction{type = .pushi, instruction = i}, nil
+		return {type = .pushi, instruction = i}, nil
 	}
 
-	log.error("invalid stack instruction", i)
+	log.error("invalid stack instruction:", i)
 	return {}, .Invalid_Stack_Instruction
+}
+
+decode_test_instruction :: proc(
+	i: Instruction,
+) -> (
+	Decoded_Instruction,
+	Instruction_Decoding_Error,
+) {
+
+	switch i.second_nibble {
+	case 0b0000:
+		return {type = .eq, instruction = i}, nil
+	case 0b0001:
+		return {type = .neq, instruction = i}, nil
+	case 0b0010:
+		return {type = .gt, instruction = i}, nil
+	case 0b0011:
+		return {type = .gte, instruction = i}, nil
+	case 0b0100:
+		return {type = .lt, instruction = i}, nil
+	case 0b0101:
+		return {type = .lte, instruction = i}, nil
+	case 0b1000:
+		return {type = .eqi, instruction = i}, nil
+	case 0b1001:
+		return {type = .neqi, instruction = i}, nil
+	case 0b1010:
+		return {type = .gti, instruction = i}, nil
+	case 0b1011:
+		return {type = .gtei, instruction = i}, nil
+	case 0b1100:
+		return {type = .lti, instruction = i}, nil
+	case 0b1101:
+		return {type = .ltei, instruction = i}, nil
+	}
+
+	log.error("invalid test instruction:", i)
+	return {}, .Invalid_Test_Instruction
 }
 
 decode_instruction :: proc(
@@ -171,11 +218,10 @@ decode_instruction :: proc(
 	case 0x0:
 	case 0x1:
 		return decode_ALU_instruction(instruction) or_return, nil
-	// stack
 	case 0x2:
 		return decode_stack_instruction(instruction) or_return, nil
-	// test
 	case 0x3:
+		return decode_test_instruction(instruction) or_return, nil
 	// load/store register
 	case 0x4 ..= 0x7:
 	// load/store
@@ -803,7 +849,6 @@ execute_pushi :: proc(c: ^Computer, i: Decoded_Instruction) {
 }
 
 execute_stack_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
-
 	switch i.type {
 	case .push:
 		execute_push(c, i)
@@ -811,9 +856,169 @@ execute_stack_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execu
 	case .pop:
 		execute_pop(c, i)
 		return nil
+	case .dup:
+		execute_dup(c, i)
+		return nil
+	case .swap:
+		execute_swap(c, i)
+		return nil
+	case .drop:
+		execute_drop(c, i)
+		return nil
+	case .over:
+		execute_over(c, i)
+		return nil
+	case .rot:
+		execute_rot(c, i)
+		return nil
+	case .sop:
+		execute_sop(c, i)
+		return nil
+	case .pushi:
+		execute_pushi(c, i)
+		return nil
 	}
 
 	log.error("invalid stack instruction:", i)
+	return .Failed_To_Execute_Instruction
+}
+
+execute_eq :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	if first_operand == second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_neq :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	if first_operand != second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_gt :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	if first_operand > second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_gte :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	if first_operand >= second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_lt :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	if first_operand < second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_lte :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := c.Registers[i.instruction.fourth_nibble]
+
+	if first_operand <= second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_eqi :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := read_next_word(c)
+
+	if first_operand == second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_neqi :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := read_next_word(c)
+
+	if first_operand != second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_gti :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := read_next_word(c)
+
+	if first_operand > second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_gtei :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := read_next_word(c)
+
+	if first_operand >= second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_lti :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := read_next_word(c)
+
+	if first_operand < second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_ltei :: proc(c: ^Computer, i: Decoded_Instruction) {
+	first_operand := c.Registers[i.instruction.third_nibble]
+	second_operand := read_next_word(c)
+
+	if first_operand <= second_operand {
+		c.test_flag = true
+	}
+}
+
+execute_test_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	switch i.type {
+	case .eq:
+		execute_eq(c, i)
+	case .neq:
+		execute_neq(c, i)
+	case .gt:
+		execute_gt(c, i)
+	case .gte:
+		execute_gte(c, i)
+	case .lt:
+		execute_lt(c, i)
+	case .lte:
+		execute_lte(c, i)
+	case .eqi:
+		execute_eqi(c, i)
+	case .neqi:
+		execute_neqi(c, i)
+	case .gti:
+		execute_gti(c, i)
+	case .gtei:
+		execute_gtei(c, i)
+	case .lti:
+		execute_lti(c, i)
+	case .ltei:
+		execute_ltei(c, i)
+	}
+	log.error("invalid test instruction:", i)
 	return .Failed_To_Execute_Instruction
 }
 
@@ -824,6 +1029,9 @@ execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Er
 		return nil
 	case Stack_Instruction:
 		execute_stack_instruction(c, i) or_return
+		return nil
+	case Test_Instruction:
+		execute_test_instruction(c, i) or_return
 		return nil
 	}
 
