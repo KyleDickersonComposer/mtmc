@@ -106,7 +106,7 @@ update :: proc(c: ^com.Computer, running: ^bool, buf: []u8) -> Error {
 
 		term.print_help_text(input)
 
-		command := term.parse_command(input) or_return
+		command := term.parse_command(c, input) or_return
 	}
 	return nil
 }
@@ -156,6 +156,8 @@ main_loop :: proc(c: ^com.Computer) {
 }
 
 main :: proc() {
+	context.logger = log.create_console_logger()
+
 	computer := com.init_computer()
 	defer com.shutdown_computer(&computer)
 	main_loop(&computer)

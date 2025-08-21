@@ -1,8 +1,47 @@
 package mtmc_terminal
 
+import com "../computer/"
 import "core:fmt"
+import "core:log"
 
-parse_command :: proc(command: string) -> (Parsed_Command, Terminal_Error) {
+parse_command :: proc(c: ^com.Computer, command: string) -> (Parsed_Command, Terminal_Error) {
+	if command == "registers" {
+		for reg, i in 0 ..< 16 {
+			fmt.printf("%v: %v\n", reg, c.Registers[i])
+		}
+		return {}, nil
+	}
+
+	if command == "flags" {
+		fmt.printf("t: %d\n", cast(u8)c.test_flag)
+		fmt.printf("o: %d\n", cast(u8)c.overflow_flag)
+		fmt.printf("n: %d\n", cast(u8)c.nan_flag)
+		fmt.printf("e: %d\n", cast(u8)c.error_flag)
+		return {}, nil
+	}
+
+	if command == "info" {
+		fmt.println(c.error_info)
+		return {}, nil
+	}
+
+	if command == "memory" {
+		fmt.print("001: ")
+		inc := 1
+		for b, i in c.Memory {
+			if i % 16 == 0 && i != 0 {
+				inc += 1
+				fmt.println()
+				fmt.printf("%3d: %v", inc, b)
+				continue
+			}
+
+			fmt.print(b)
+		}
+		fmt.println()
+		return {}, nil
+	}
+
 	return {}, .Failed
 }
 
