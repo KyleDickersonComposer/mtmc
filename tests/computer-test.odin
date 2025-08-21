@@ -340,7 +340,7 @@ imm_add_instruction :: proc(t: ^testing.T) {
 	c := com.Computer{}
 	c.Registers[com.Register.t0] = 42
 
-	com.set_next_word(&c, 27, 2)
+	com.write_next_word(&c, 27, 2)
 
 	// imm add t0 27
 	instruction_as_bytes: u16 = 0b0001_1111_0000_0000
@@ -378,7 +378,9 @@ push_instruction :: proc(t: ^testing.T) {
 
 	sp := c.Registers[com.Register.sp]
 
-	testing.expect_value(t, com.read_word_at_stack_address(&c, u16(sp), 0), 42)
+	value := com.read_word_at_memory_address(&c, u16(sp), 0)
+
+	testing.expect_value(t, value, 42)
 }
 
 @(test)
@@ -406,4 +408,160 @@ pop_instruction :: proc(t: ^testing.T) {
 	testing.expect_value(t, c.Registers[com.Register.sp], sp_value)
 
 	testing.expect_value(t, c.Registers[com.Register.t0], 42)
+}
+
+@(test)
+dup_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 42, 0)
+
+	sp_value := c.Registers[com.Register.sp]
+
+	// pop t0
+	instruction_as_bytes: u16 = 0b0010_0010_0000_1101
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	new_sp := c.Registers[com.Register.sp]
+
+	top := com.read_word_at_memory_address(&c, u16(new_sp), 0)
+	second := com.read_word_at_memory_address(&c, u16(new_sp), 2)
+
+	testing.expect_value(t, top, second)
+	testing.expect_value(t, new_sp, sp_value - 2)
+}
+
+@(test)
+swap_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 42, 0)
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 27, 0)
+
+	// pop t0
+	instruction_as_bytes: u16 = 0b0010_0011_0000_1101
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	new_sp := c.Registers[com.Register.sp]
+
+	top := com.read_word_at_memory_address(&c, u16(new_sp), 0)
+	bottom := com.read_word_at_memory_address(&c, u16(new_sp), 2)
+
+	testing.expect_value(t, top, 42)
+	testing.expect_value(t, bottom, 27)
+}
+
+@(test)
+drop_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 32000, 0)
+
+	sp_value := c.Registers[com.Register.sp]
+
+	// drop
+	instruction_as_bytes: u16 = 0b0010_0100_0000_1101
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	word_at_sp := com.read_word_at_memory_address(&c, u16(sp_value), 0)
+
+	testing.expect_value(t, c.Registers[com.Register.sp], sp_value + 2)
+}
+
+@(test)
+over_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	initial_sp_value := c.Registers[com.Register.sp]
+
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 42, 0)
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 27, 0)
+
+	sp_value := c.Registers[com.Register.sp]
+
+	// over
+	instruction_as_bytes: u16 = 0b0010_0101_0000_1101
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	new_sp_value := c.Registers[com.Register.sp]
+
+	dupped_value := com.read_word_at_memory_address(&c, u16(new_sp_value), 0)
+
+	testing.expect_value(t, dupped_value, 42)
+	testing.expect_value(t, sp_value, initial_sp_value - 4)
+}
+
+@(test)
+rot_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	index_of_sp := 13
+	initial_sp_value := c.Registers[com.Register.sp]
+
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 42, 0)
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 27, 0)
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 1, 0)
+
+	sp_value := c.Registers[com.Register.sp]
+
+	// over
+	instruction_as_bytes: u16 = 0b0010_0110_0000_1101
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+
+	new_sp_value := c.Registers[com.Register.sp]
+
+
+	top_word := com.read_word_at_memory_address(&c, u16(index_of_sp), 0)
+	next_word := com.read_word_at_memory_address(&c, u16(index_of_sp), 2)
+	bottom_word := com.read_word_at_memory_address(&c, u16(index_of_sp), 4)
+
+	testing.expect_value(t, top_word, 42)
+	testing.expect_value(t, next_word, 1)
+	testing.expect_value(t, bottom_word, 27)
 }

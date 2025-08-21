@@ -24,6 +24,7 @@ Execution_Error :: enum {
 	Invalid_Overflow_Check_On_Operation_That_Will_Not_Overflow,
 	Failed_To_Set_Word,
 	Failed_To_Execute_Instruction,
+	Read_Write_Error,
 }
 
 Computer :: struct {
