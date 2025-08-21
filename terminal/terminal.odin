@@ -49,6 +49,11 @@ print_help_text :: proc(command: string) {
 	if command == "help" || command == "?" {
 		fmt.println(
 			"Type the commands below for more information on how to use them!\n",
+			"Commands listing:\n",
+			"\tregisters - debug print of registers\n",
+			"\tmemory - debug print of memory\n",
+			"\tflags - debug print of flags\n",
+			"\tinfo - debug print of error_info\n",
 			"Help listing:\n",
 			"\tmtmc help\n",
 			"\tcommands help\n",
