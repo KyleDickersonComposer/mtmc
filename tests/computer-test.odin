@@ -540,7 +540,7 @@ rot_instruction :: proc(t: ^testing.T) {
 
 	sp_value := c.Registers[com.Register.sp]
 
-	// over
+	// rot
 	instruction_as_bytes: u16 = 0b0010_0110_0000_1101
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -564,4 +564,59 @@ rot_instruction :: proc(t: ^testing.T) {
 	testing.expect_value(t, top_word, 42)
 	testing.expect_value(t, next_word, 1)
 	testing.expect_value(t, bottom_word, 27)
+}
+
+@(test)
+sop_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 42, 0)
+	com.push_word_at_stack_address(&c, u16(com.Register.sp), 27, 0)
+
+	// sop add
+	instruction_as_bytes: u16 = 0b0010_0111_0000_1101
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	sp_value := c.Registers[com.Register.sp]
+
+	result := com.read_word_at_memory_address(&c, u16(sp_value), 0)
+
+	testing.expect_value(t, result, 42 + 27)
+}
+
+@(test)
+pushi_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	pc_value := c.Registers[com.Register.pc]
+
+	com.set_word_at_memory_address(&c, u16(pc_value), 42, 2)
+
+	// pushi 42
+	instruction_as_bytes: u16 = 0b0010_1111_0000_1101
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	sp_value := c.Registers[com.Register.sp]
+
+	result := com.read_word_at_memory_address(&c, u16(sp_value), 0)
+
+	testing.expect_value(t, result, 42)
 }
