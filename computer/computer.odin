@@ -8,7 +8,12 @@ NEGATIVE_OVERFLOW :: -32768
 
 init_computer :: proc(allocator := context.allocator) -> Computer {
 	errors := make([dynamic]Debug_Error_Info, allocator)
-	return Computer{error_info = errors}
+	c := Computer {
+		error_info = errors,
+	}
+
+	c.Registers[Register.sp] = len(c.Memory) - 1
+	return c
 }
 
 shutdown_computer :: proc(c: ^Computer) {
@@ -104,8 +109,8 @@ read_byte_at_memory_address :: proc(c: ^Computer, address: u16, offset: u16) -> 
 	return c.Memory[address + offset]
 }
 
-push_word_at_stack_address :: proc(c: ^Computer, sp: u16, value: i16, sp_offset: u16) {
-	if check_is_odd(sp_offset) {
+push_word_at_stack_address :: proc(c: ^Computer, index_of_sp: u16, value: i16, sp_offset: u16) {
+	if !check_is_odd(sp_offset) {
 		c.error_flag = true
 		append(
 			&c.error_info,
@@ -121,12 +126,17 @@ push_word_at_stack_address :: proc(c: ^Computer, sp: u16, value: i16, sp_offset:
 		)
 	}
 
-	c.Memory[sp - sp_offset] = u8(value)
-	c.Memory[sp - sp_offset - 1] = u8(value >> 8)
+
+	offset_pointer_address(c, i16(index_of_sp), -2)
+
+	sp := c.Registers[index_of_sp]
+
+	c.Memory[u16(sp) - sp_offset] = u8(value)
+	c.Memory[u16(sp) - sp_offset - 1] = u8(value >> 8)
 }
 
-read_word_at_stack_address :: proc(c: ^Computer, sp: u16, sp_offset: u16) -> i16 {
-	if check_is_odd(sp_offset) {
+read_word_at_stack_address :: proc(c: ^Computer, sp: u16, sp_offset: i16) -> i16 {
+	if !check_is_odd(u16(sp_offset)) {
 		c.error_flag = true
 		append(
 			&c.error_info,
@@ -142,8 +152,8 @@ read_word_at_stack_address :: proc(c: ^Computer, sp: u16, sp_offset: u16) -> i16
 		)
 	}
 
-	first_byte := c.Memory[sp - sp_offset - 1]
-	second_byte := c.Memory[sp - sp_offset]
+	first_byte := c.Memory[i16(sp) + sp_offset - 1]
+	second_byte := c.Memory[i16(sp) + sp_offset]
 
 	word := (u16(first_byte) << 8) | u16(second_byte)
 
@@ -786,35 +796,67 @@ execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Executi
 	return .Failed_To_Execute_Instruction
 }
 
-execute_push :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := c.Registers[i.instruction.fourth_nibble]
+offset_pointer_address :: proc(
+	c: ^Computer,
+	register_file_index: i16,
+	offset: i16,
+) -> Execution_Error {
+	// TODO: we might not want this to error return an error?
+	if register_file_index > 20 || register_file_index < 0 {
+		log.error("invalid register_file_index", register_file_index)
+		return .Failed_To_Execute_Instruction
+	}
 
-	c.Registers[sp] += -2
+	// TODO: we might not want this to error return an error?
+	if c.Registers[register_file_index] + offset > len(c.Memory) ||
+	   c.Registers[register_file_index] + offset < 0 {
+		log.errorf(
+			"pointer offset causes out of bounds read, address->%v, offset: %v, we only have 4096 bytes of memory",
+			c.Registers[register_file_index],
+			offset,
+		)
+		return .Failed_To_Execute_Instruction
+	}
+
+	c.Registers[register_file_index] += offset
+	return nil
+}
+
+execute_push :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	index_of_sp := i.instruction.fourth_nibble
+	sp := c.Registers[index_of_sp]
 
 	operand := c.Registers[i.instruction.third_nibble]
 
-	push_word_at_stack_address(c, u16(sp), operand, 0)
+	push_word_at_stack_address(c, u16(index_of_sp), operand, 0)
+
+	return nil
 }
 
-execute_pop :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := c.Registers[i.instruction.fourth_nibble]
+execute_pop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	index_of_sp := i.instruction.fourth_nibble
 	assignment_register := i.instruction.third_nibble
+
+	sp := c.Registers[index_of_sp]
 
 	c.Registers[assignment_register] = read_word_at_stack_address(c, u16(sp), 0)
 
-	c.Registers[sp] += 2
+	offset_pointer_address(c, i16(index_of_sp), +2) or_return
+
+	return nil
 }
 
-execute_dup :: proc(c: ^Computer, i: Decoded_Instruction) {
-	sp := c.Registers[i.instruction.fourth_nibble]
+execute_dup :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	index_of_sp := i.instruction.fourth_nibble
+	sp := c.Registers[index_of_sp]
 
 	top_word := read_word_at_stack_address(c, u16(sp), 0)
-
-	c.Registers[sp] += -2
 
 	new_sp := c.Registers[sp]
 
 	push_word_at_stack_address(c, u16(new_sp), top_word, 0)
+
+	return nil
 }
 
 execute_swap :: proc(c: ^Computer, i: Decoded_Instruction) {
