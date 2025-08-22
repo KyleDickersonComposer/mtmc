@@ -63,8 +63,6 @@ dec_instruction :: proc(t: ^testing.T) {
 		testing.fail(t)
 	}
 
-	log.info(d)
-
 	err = com.execute_instruction(&c, d)
 	if err != nil {
 		testing.fail(t)
@@ -84,8 +82,6 @@ seti_instruction :: proc(t: ^testing.T) {
 	if err != nil {
 		testing.fail(t)
 	}
-
-	log.info(d)
 
 	err = com.execute_instruction(&c, d)
 	if err != nil {
