@@ -32,11 +32,11 @@ parse_command :: proc(c: ^com.Computer, command: string) -> (Parsed_Command, Ter
 			if i % 16 == 0 && i != 0 {
 				inc += 1
 				fmt.println()
-				fmt.printf("%3d: %v", inc, b)
+				fmt.printf("%3d: %X  ", inc, b)
 				continue
 			}
 
-			fmt.print(b)
+			fmt.print(b, " ")
 		}
 		fmt.println()
 		return {}, nil
@@ -50,23 +50,25 @@ print_help_text :: proc(command: string) {
 		fmt.println(
 			"Type the commands below for more information on how to use them!\n",
 			"Commands listing:\n",
-			"\tregisters - debug print of registers\n",
-			"\tmemory - debug print of memory\n",
-			"\tflags - debug print of flags\n",
-			"\tinfo - debug print of error_info\n",
+			"\tregisters -> debug print of registers\n",
+			"\tmemory -> debug print of memory\n",
+			"\tflags -> debug print of flags\n",
+			"\tinfo -> debug print of error_info\n",
+			"\texit -> quit the program\n",
 			"Help listing:\n",
-			"\tmtmc help\n",
-			"\tcommands help\n",
-			"\tinstructions help\n",
-			"\tregisters help\n",
-			"\tmemory help\n",
-			"\tsyscalls help\n",
+			"\tmtmc help -> introduction to MTMC\n",
+			"\tinstructions help -> introduction to MTMC's instruction set\n",
+			"\tregisters help -> introduction to MTMC's instruction set\n",
+			"\tmemory help -> introduction to MTMC's memory layout and semantics\n",
+			"\tsyscalls help -> introduction to MTMC's syscalls\n",
 		)
 	}
 
 	if command == "mtmc help" {
 		fmt.println(
-			"The MonTana state Mini Computer is a virtual computer intended to show how digital computation works in a fun and visual way.\nThe MTSC combines ideas from the PDP-11, MIPS, Scott CPU, Game Boy and JVM to make a relatively simple 16-bit computer that can accomplish basic computing tasks.\nThe computer is displayed via a web interface that includes all the I/O such as console and display, visual representations of the computer state, and a built in code editor to construct and debug software for the computer.",
+			"The MonTana state Mini Computer is a virtual computer intended to show how digital computation works in a fun and visual way.\n",
+			"The MTSC combines ideas from the PDP-11, MIPS, Scott CPU, Game Boy and JVM to make a relatively simple 16-bit computer that can accomplish basic computing tasks.\n",
+			"The computer is displayed via a web interface that includes all the I/O such as console and display, visual representations of the computer state, and a built in code editor to construct and debug software for the computer.",
 		)
 	}
 

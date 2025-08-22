@@ -12,7 +12,7 @@ init_computer :: proc(allocator := context.allocator) -> Computer {
 		error_info = errors,
 	}
 
-	// NOTE: start sp at top byte of second word
+	// NOTE: start sp at top byte of second to last word
 	c.Registers[Register.sp] = len(c.Memory) - 4
 	return c
 }
@@ -25,12 +25,21 @@ shutdown_computer :: proc(c: ^Computer) {
 	delete(c.error_info)
 }
 
-read_next_word :: proc(c: ^Computer) -> (i16, Execution_Error) {
+read_next_word :: proc(c: ^Computer) -> i16 {
 	pc := c.Registers[Register.pc]
 
 	if pc + 2 >= len(c.Memory) {
-		log.error("tried to read memory that was out of bounds")
-		return 0, .Read_Write_Error
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("tried to read word outside of memory bounds"),
+			},
+		)
+
+		return 0
 	}
 
 	first_byte := c.Memory[pc + 2]
@@ -38,49 +47,35 @@ read_next_word :: proc(c: ^Computer) -> (i16, Execution_Error) {
 
 	word := ((u16(first_byte) << 8) | u16(second_byte))
 
-	return i16(word), nil
+	return i16(word)
 }
 
-read_next_byte :: proc(c: ^Computer) -> (u8, Execution_Error) {
+read_next_byte :: proc(c: ^Computer) -> u8 {
 	pc := c.Registers[Register.pc]
 
 	if pc + 1 >= len(c.Memory) {
-		log.error("tried to read memory that was out of bounds")
-		return 0, .Read_Write_Error
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("tried to read byte outside of memory bounds"),
+			},
+		)
+
+		return 0
 	}
 
 	byte := c.Memory[pc + 2]
 
-	return byte, nil
+	return byte
 }
 
-write_next_word :: proc(c: ^Computer, value: i16, pc_offset: i16) -> Execution_Error {
+write_next_word :: proc(c: ^Computer, value: i16, pc_offset: i16) {
 	pc := c.Registers[Register.pc] + pc_offset
 
 	if pc + 2 >= len(c.Memory) {
-		log.error("tried to read memory that was out of bounds")
-		return .Read_Write_Error
-	}
-
-	raw := u16(value)
-
-	c.Memory[pc] = u8(raw >> 8)
-	c.Memory[pc + 1] = u8(raw)
-
-	return nil
-}
-
-check_is_odd :: proc(value: u16) -> bool {
-	return value % 2 == 0
-}
-
-set_word_at_memory_address :: proc(c: ^Computer, address: u16, value: i16, offset: u16) {
-	first_byte := u8(value >> 8)
-	second_byte := u8(value)
-
-	new_address := address + offset
-
-	if new_address >= len(c.Memory) || new_address < 0 {
 		c.error_flag = true
 		append(
 			&c.error_info,
@@ -94,41 +89,98 @@ set_word_at_memory_address :: proc(c: ^Computer, address: u16, value: i16, offse
 		return
 	}
 
-	c.Memory[address + offset] = first_byte
-	c.Memory[address + 1 + offset] = second_byte
+	raw := u16(value)
+
+	c.Memory[pc] = u8(raw >> 8)
+	c.Memory[pc + 1] = u8(raw)
 }
 
-set_byte_at_memory_address :: proc(c: ^Computer, address: u16, value: i16, offset: u16) {
-	first_byte := u8(value >> 8)
+check_is_odd :: proc(value: u16) -> bool {
+	return value % 2 == 0
+}
 
-	if (address + offset) >= len(c.Memory) {
+set_word_at_memory_address :: proc(c: ^Computer, address: u16, value: i16, offset: i16) {
+	first_byte := u8(value >> 8)
+	second_byte := u8(value)
+
+	new_address := i16(address) + offset
+
+	if new_address + 1 >= len(c.Memory) || new_address < 0 {
 		c.error_flag = true
 		append(
 			&c.error_info,
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("tried write byte outside of memory bounds"),
+				error_message = fmt.aprintf("tried to write word outside of memory bounds"),
 			},
 		)
 
 		return
 	}
 
-	c.Memory[address + offset] = first_byte
+	c.Memory[i16(address) + offset] = first_byte
+	c.Memory[i16(address) + 1 + offset] = second_byte
 }
 
-read_word_at_memory_address :: proc(c: ^Computer, address: u16, offset: u16) -> i16 {
-	first_byte := c.Memory[address + offset]
-	second_byte := c.Memory[address + offset + 1]
+set_byte_at_memory_address :: proc(c: ^Computer, address: u16, value: i16, offset: i16) {
+	first_byte := u8(value)
+
+	if (i16(address) + offset) >= len(c.Memory) {
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("tried to write byte outside of memory bounds"),
+			},
+		)
+
+		return
+	}
+
+	c.Memory[i16(address) + offset] = first_byte
+}
+
+read_word_at_memory_address :: proc(c: ^Computer, address: u16, offset: i16) -> i16 {
+	if i16(address) + 1 + offset > len(c.Memory) || i16(address) + 1 + offset < 0 {
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("tried to read word outside of memory bounds"),
+			},
+		)
+
+		return 0
+	}
+
+	first_byte := c.Memory[i16(address) + offset]
+	second_byte := c.Memory[i16(address) + offset + 1]
 
 	word := (u16(first_byte) << 8) | u16(second_byte)
 
 	return i16(word)
 }
 
-read_byte_at_memory_address :: proc(c: ^Computer, address: u16, offset: u16) -> u8 {
-	return c.Memory[address + offset]
+read_byte_at_memory_address :: proc(c: ^Computer, address: u16, offset: i16) -> u8 {
+	if i16(address) + offset > len(c.Memory) || i16(address) + offset < 0 {
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("tried to read byte outside of memory bounds"),
+			},
+		)
+
+		return 0
+	}
+	return c.Memory[i16(address) + offset]
 }
 
 push_word_at_stack_address :: proc(c: ^Computer, index_of_sp: u16, value: i16, sp_offset: i16) {
@@ -289,7 +341,7 @@ decode_load_store_register_instruction :: proc(
 	case 0b10:
 		return {type = .swr, instruction = i}, nil
 	case 0b11:
-		return {type = .lbr, instruction = i}, nil
+		return {type = .sbr, instruction = i}, nil
 	}
 
 	log.errorf("invalid load_store_register instruction: %b", i)
@@ -321,7 +373,7 @@ decode_load_store_instruction :: proc(
 		return {type = .sb, instruction = i}, nil
 	case 0b0111:
 		return {type = .sbo, instruction = i}, nil
-	case 0b1000:
+	case 0b1111:
 		return {type = .li, instruction = i}, nil
 	}
 
@@ -335,7 +387,7 @@ decode_jump_instruction :: proc(
 	Decoded_Instruction,
 	Instruction_Decoding_Error,
 ) {
-	op := i.first_nibble
+	op := i.first_nibble & 0b11
 
 	switch op {
 	case 0b0000:
@@ -495,7 +547,7 @@ execute_div :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	if i.instruction.fourth_nibble == 0 {
 		pc := c.Registers[Register.pc]
 
-		c.error_flag = true
+		c.nan_flag = true
 		append(
 			&c.error_info,
 			Debug_Error_Info {
@@ -671,7 +723,7 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		return nil
 	case .div:
 		if next_word == 0 {
-			c.error_flag = true
+			c.nan_flag = true
 			return nil
 		}
 		check_overflow(first_operand, next_word, .div) or_return
@@ -679,7 +731,7 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		return nil
 	case .mod:
 		if next_word == 0 {
-			c.error_flag = true
+			c.nan_flag = true
 			return nil
 		}
 		check_overflow(first_operand, next_word, .mod) or_return
@@ -1151,119 +1203,121 @@ execute_lte :: proc(c: ^Computer, i: Decoded_Instruction) {
 	}
 }
 
-execute_eqi :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_eqi :: proc(c: ^Computer, i: Decoded_Instruction) {
 	first_operand := c.Registers[i.instruction.third_nibble]
-	second_operand := read_next_word(c) or_return
+	second_operand := i.instruction.fourth_nibble
 
-	if first_operand == second_operand {
+	if first_operand == i16(second_operand) {
 		c.test_flag = true
 	}
-
-	return nil
 }
 
-execute_neqi :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_neqi :: proc(c: ^Computer, i: Decoded_Instruction) {
 	first_operand := c.Registers[i.instruction.third_nibble]
-	second_operand := read_next_word(c) or_return
+	second_operand := i.instruction.fourth_nibble
 
-	if first_operand != second_operand {
+	if first_operand != i16(second_operand) {
 		c.test_flag = true
 	}
-
-	return nil
 }
 
-execute_gti :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_gti :: proc(c: ^Computer, i: Decoded_Instruction) {
 	first_operand := c.Registers[i.instruction.third_nibble]
-	second_operand := read_next_word(c) or_return
+	second_operand := i.instruction.fourth_nibble
 
-	if first_operand > second_operand {
+	if first_operand > i16(second_operand) {
 		c.test_flag = true
 	}
 
-	return nil
 }
 
-execute_gtei :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_gtei :: proc(c: ^Computer, i: Decoded_Instruction) {
 	first_operand := c.Registers[i.instruction.third_nibble]
-	second_operand := read_next_word(c) or_return
+	second_operand := i.instruction.fourth_nibble
 
-	if first_operand >= second_operand {
+	if first_operand >= i16(second_operand) {
 		c.test_flag = true
 	}
 
-	return nil
 }
 
-execute_lti :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_lti :: proc(c: ^Computer, i: Decoded_Instruction) {
 	first_operand := c.Registers[i.instruction.third_nibble]
-	second_operand := read_next_word(c) or_return
+	second_operand := i.instruction.fourth_nibble
 
-	if first_operand < second_operand {
+	if first_operand < i16(second_operand) {
 		c.test_flag = true
 	}
 
-	return nil
 }
 
-execute_ltei :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_ltei :: proc(c: ^Computer, i: Decoded_Instruction) {
 	first_operand := c.Registers[i.instruction.third_nibble]
-	second_operand := read_next_word(c) or_return
+	second_operand := i.instruction.fourth_nibble
 
-	if first_operand <= second_operand {
+	if first_operand <= i16(second_operand) {
 		c.test_flag = true
 	}
 
-	return nil
 }
 
 execute_test_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	switch i.type {
 	case .eq:
 		execute_eq(c, i)
+		return nil
 	case .neq:
 		execute_neq(c, i)
+		return nil
 	case .gt:
 		execute_gt(c, i)
+		return nil
 	case .gte:
 		execute_gte(c, i)
+		return nil
 	case .lt:
 		execute_lt(c, i)
+		return nil
 	case .lte:
 		execute_lte(c, i)
+		return nil
 	case .eqi:
 		execute_eqi(c, i)
+		return nil
 	case .neqi:
 		execute_neqi(c, i)
+		return nil
 	case .gti:
 		execute_gti(c, i)
+		return nil
 	case .gtei:
 		execute_gtei(c, i)
+		return nil
 	case .lti:
 		execute_lti(c, i)
+		return nil
 	case .ltei:
 		execute_ltei(c, i)
+		return nil
 	}
 	log.error("invalid test instruction:", i)
 	return .Failed_To_Execute_Instruction
 }
 
 execute_load_word_register :: proc(c: ^Computer, i: Decoded_Instruction) {
-	assignement_register := i.instruction.second_nibble
+	assignment_register := i.instruction.second_nibble
 	address := c.Registers[i.instruction.third_nibble]
 	offset := c.Registers[i.instruction.fourth_nibble]
 
-	c.Registers[assignement_register] = read_word_at_memory_address(c, u16(address), u16(offset))
+	c.Registers[assignment_register] = read_word_at_memory_address(c, u16(address), offset)
 }
 
 execute_load_byte_register :: proc(c: ^Computer, i: Decoded_Instruction) {
-	assignement_register := i.instruction.second_nibble
+	assignment_register := i.instruction.second_nibble
 	address := c.Registers[i.instruction.third_nibble]
 	offset := c.Registers[i.instruction.fourth_nibble]
 
-	c.Registers[assignement_register] = i16(
-		read_byte_at_memory_address(c, u16(address), u16(offset)),
-	)
+	c.Registers[assignment_register] = i16(read_byte_at_memory_address(c, u16(address), offset))
 }
 
 execute_store_word_register :: proc(c: ^Computer, i: Decoded_Instruction) {
@@ -1271,7 +1325,7 @@ execute_store_word_register :: proc(c: ^Computer, i: Decoded_Instruction) {
 	address := c.Registers[i.instruction.third_nibble]
 	offset := c.Registers[i.instruction.fourth_nibble]
 
-	set_word_at_memory_address(c, u16(address), value, u16(offset))
+	set_word_at_memory_address(c, u16(address), value, offset)
 }
 
 execute_store_byte_register :: proc(c: ^Computer, i: Decoded_Instruction) {
@@ -1279,7 +1333,7 @@ execute_store_byte_register :: proc(c: ^Computer, i: Decoded_Instruction) {
 	address := c.Registers[i.instruction.third_nibble]
 	offset := c.Registers[i.instruction.fourth_nibble]
 
-	set_byte_at_memory_address(c, u16(address), value, u16(offset))
+	set_byte_at_memory_address(c, u16(address), value, offset)
 }
 
 execute_load_store_register_instruction :: proc(
@@ -1292,10 +1346,13 @@ execute_load_store_register_instruction :: proc(
 		return nil
 	case .lbr:
 		execute_load_byte_register(c, i)
+		return nil
 	case .swr:
 		execute_store_word_register(c, i)
+		return nil
 	case .sbr:
 		execute_store_byte_register(c, i)
+		return nil
 	}
 
 	log.error("invalid load_store_register instruction:", i)
@@ -1303,101 +1360,75 @@ execute_load_store_register_instruction :: proc(
 }
 
 // TODO: need to handle dr register book keeping?
-execute_load_word_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_load_word_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	assignment_register := i.instruction.third_nibble
-	address := read_next_word(c) or_return
+	next_word := read_next_word(c)
 
-	c.Registers[assignment_register] = read_word_at_memory_address(c, u16(address), 0)
-
-	return nil
+	c.Registers[assignment_register] = next_word
 }
 
-execute_load_word_offset_instruction :: proc(
-	c: ^Computer,
-	i: Decoded_Instruction,
-) -> Execution_Error {
+execute_load_word_offset_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	assignment_register := i.instruction.third_nibble
-	address := read_next_word(c) or_return
-	offset := i.instruction.fourth_nibble
+	offset := c.Registers[i.instruction.fourth_nibble]
 
-	c.Registers[assignment_register] = read_word_at_memory_address(c, u16(address), offset)
 
-	return nil
+	value := read_word_at_memory_address(c, u16(c.Registers[Register.pc]), 2 + offset)
+
+	c.Registers[assignment_register] = value
 }
 
-execute_load_byte_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_load_byte_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	assignment_register := i.instruction.third_nibble
-	address := i16(read_next_byte(c) or_return)
+	next_word := read_next_byte(c)
 
-	c.Registers[assignment_register] = i16(read_byte_at_memory_address(c, u16(address), 0))
-	return nil
+	c.Registers[assignment_register] = i16(next_word)
 }
 
-execute_load_byte_offset_instruction :: proc(
-	c: ^Computer,
-	i: Decoded_Instruction,
-) -> Execution_Error {
+execute_load_byte_offset_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	assignment_register := i.instruction.third_nibble
-	address := read_next_byte(c) or_return
-	offset := i.instruction.fourth_nibble
+	offset := c.Registers[i.instruction.fourth_nibble]
 
-	c.Registers[assignment_register] = i16(read_byte_at_memory_address(c, u16(address), offset))
-	return nil
+	value := read_byte_at_memory_address(c, u16(c.Registers[Register.pc]), 2 + offset)
+
+	c.Registers[assignment_register] = i16(value)
 }
 
-execute_store_word_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_store_word_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	value := c.Registers[i.instruction.third_nibble]
-	address := read_next_word(c) or_return
+	address := read_next_word(c)
+
 	set_word_at_memory_address(c, u16(address), value, 0)
-
-	return nil
 }
 
-execute_store_word_offset_instruction :: proc(
-	c: ^Computer,
-	i: Decoded_Instruction,
-) -> Execution_Error {
+execute_store_word_offset_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	value := c.Registers[i.instruction.third_nibble]
-	address := read_next_word(c) or_return
+	address := read_next_word(c)
 	offset := c.Registers[i.instruction.fourth_nibble]
 
-	set_word_at_memory_address(c, u16(address), value, u16(offset))
-
-	return nil
+	set_word_at_memory_address(c, u16(address), value, offset)
 }
 
-execute_store_byte_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+execute_store_byte_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	value := c.Registers[i.instruction.third_nibble]
-	address := read_next_byte(c) or_return
+	address := read_next_byte(c)
+
 	set_byte_at_memory_address(c, u16(address), value, 0)
-
-	return nil
 }
 
-execute_store_byte_offset_instruction :: proc(
-	c: ^Computer,
-	i: Decoded_Instruction,
-) -> Execution_Error {
+execute_store_byte_offset_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	value := c.Registers[i.instruction.third_nibble]
-	address := read_next_byte(c) or_return
+	address := read_next_byte(c)
 	offset := c.Registers[i.instruction.fourth_nibble]
 
-	set_byte_at_memory_address(c, u16(address), value, u16(offset))
-
-	return nil
+	set_byte_at_memory_address(c, u16(address), value, offset)
 }
 
 
-execute_load_immediate_instruction :: proc(
-	c: ^Computer,
-	i: Decoded_Instruction,
-) -> Execution_Error {
+execute_load_immediate_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	address := i.instruction.third_nibble
-	value := read_next_word(c) or_return
+	value := read_next_word(c)
 
 	c.Registers[address] = value
-
-	return nil
 }
 
 execute_load_store_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
@@ -1480,6 +1511,16 @@ execute_jump_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execut
 	switch i.type {
 	case .j:
 		execute_jump(c, i)
+		return nil
+	case .jz:
+		execute_jump_zero(c, i)
+		return nil
+	case .jnz:
+		execute_jump_not_zero(c, i)
+		return nil
+	case .jal:
+		execute_jump_and_link(c, i)
+		return nil
 	}
 
 	log.error("invalid jump_register instruction:", i)
@@ -1507,8 +1548,10 @@ execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Er
 		return nil
 	case Jump_Register_Instruction:
 		execute_jump_register(c, i)
+		return nil
 	case Jump_Instruction:
 		execute_jump_instruction(c, i) or_return
+		return nil
 	}
 
 	log.error("failed to execute instruction:", i)
