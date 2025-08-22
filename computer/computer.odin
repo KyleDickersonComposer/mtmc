@@ -13,8 +13,7 @@ init_computer :: proc(allocator := context.allocator) -> Computer {
 	}
 
 	// NOTE: start sp at top byte of second to last word
-	c.Registers[Register.sp] = len(c.Memory) - 4
-	c.Registers[Register.fp] = len(c.Memory) - 4
+	c.Registers[Register.sp] = len(c.Memory)
 	return c
 }
 
