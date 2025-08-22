@@ -35,7 +35,7 @@ read_next_word :: proc(c: ^Computer) -> i16 {
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("tried to read word outside of memory bounds"),
+				error_message = fmt.aprintf("tried to read word out-of-bounds"),
 			},
 		)
 
@@ -60,7 +60,7 @@ read_next_byte :: proc(c: ^Computer) -> u8 {
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("tried to read byte outside of memory bounds"),
+				error_message = fmt.aprintf("tried to read byte out-of-bounds"),
 			},
 		)
 
@@ -82,7 +82,7 @@ write_next_word :: proc(c: ^Computer, value: i16, pc_offset: i16) {
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("tried to write word outside of memory bounds"),
+				error_message = fmt.aprintf("tried to write word out-of-bounds"),
 			},
 		)
 
@@ -112,7 +112,7 @@ set_word_at_memory_address :: proc(c: ^Computer, address: u16, value: i16, offse
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("tried to write word outside of memory bounds"),
+				error_message = fmt.aprintf("tried to write word out-of-bounds"),
 			},
 		)
 
@@ -133,7 +133,7 @@ set_byte_at_memory_address :: proc(c: ^Computer, address: u16, value: i16, offse
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("tried to write byte outside of memory bounds"),
+				error_message = fmt.aprintf("tried to write byte out-of-bounds"),
 			},
 		)
 
@@ -151,7 +151,7 @@ read_word_at_memory_address :: proc(c: ^Computer, address: u16, offset: i16) -> 
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("tried to read word outside of memory bounds"),
+				error_message = fmt.aprintf("tried to read word out-of-bounds"),
 			},
 		)
 
@@ -174,7 +174,7 @@ read_byte_at_memory_address :: proc(c: ^Computer, address: u16, offset: i16) -> 
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("tried to read byte outside of memory bounds"),
+				error_message = fmt.aprintf("tried to read byte out-of-bounds"),
 			},
 		)
 
