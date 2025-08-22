@@ -14,6 +14,7 @@ init_computer :: proc(allocator := context.allocator) -> Computer {
 
 	// NOTE: start sp at top byte of second to last word
 	c.Registers[Register.sp] = len(c.Memory) - 4
+	c.Registers[Register.fp] = len(c.Memory) - 4
 	return c
 }
 
@@ -579,7 +580,7 @@ execute_mod :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	if i.instruction.fourth_nibble == 0 {
 		pc := c.Registers[Register.pc]
 
-		c.error_flag = true
+		c.nan_flag = true
 		append(
 			&c.error_info,
 			Debug_Error_Info {
@@ -705,8 +706,7 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 
 	pc := c.Registers[Register.pc]
 
-	raw := u16(c.Memory[pc + 2]) << 8 | u16(c.Memory[pc + 3])
-	next_word := i16(raw)
+	next_word := read_next_word(c)
 
 	switch op {
 	case .add:
@@ -723,18 +723,47 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		return nil
 	case .div:
 		if next_word == 0 {
+			pc := c.Registers[Register.pc]
+
 			c.nan_flag = true
+			append(
+				&c.error_info,
+				Debug_Error_Info {
+					pc = c.Registers[Register.pc],
+					sp = c.Registers[Register.sp],
+					error_message = fmt.aprintf(
+						"div by zero at pc: 0x%04X (instruction %d)",
+						pc,
+						pc / 2,
+					),
+				},
+			)
+
 			return nil
 		}
-		check_overflow(first_operand, next_word, .div) or_return
+		c.overflow_flag = check_overflow(first_operand, next_word, .mul) or_return
 		c.Registers[assignment_register] = first_operand / next_word
 		return nil
 	case .mod:
 		if next_word == 0 {
+			pc := c.Registers[Register.pc]
+
 			c.nan_flag = true
+			append(
+				&c.error_info,
+				Debug_Error_Info {
+					pc = c.Registers[Register.pc],
+					sp = c.Registers[Register.sp],
+					error_message = fmt.aprintf(
+						"div by zero at pc: 0x%04X (instruction %d)",
+						pc,
+						pc / 2,
+					),
+				},
+			)
 			return nil
 		}
-		check_overflow(first_operand, next_word, .mod) or_return
+		c.overflow_flag = check_overflow(first_operand, next_word, .mul) or_return
 		c.Registers[assignment_register] = first_operand % next_word
 		return nil
 	case .and:
@@ -773,8 +802,19 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 		)
 		return nil
 	case .imm:
-		log.errorf("invalid op in imm instruction, got: %b", op)
-		return .Invalid_Operation_In_Immediate_Mode_ALU_Instruction
+		c.error_flag = true
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = pc,
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf(
+					"immediate mode operation inside of another immediate mode operation isn't valid: %v",
+					i,
+				),
+			},
+		)
+		return nil
 	}
 
 	log.error("invalid immediate mode ALU instruction:", i)
@@ -791,7 +831,6 @@ execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Executi
 	// TODO: Figure out where to set the flags, probably not here?
 	c.nan_flag = false
 	c.overflow_flag = false
-	c.test_flag = false
 
 	switch i.type {
 	case .add:
@@ -983,12 +1022,12 @@ execute_rot :: proc(c: ^Computer, i: Decoded_Instruction) {
 	}
 
 	temp := read_word_at_memory_address(c, u16(sp_value), 4)
-	top_word := read_word_at_memory_address(c, u16(sp_value), 2)
-	next_word := read_word_at_memory_address(c, u16(sp_value), 0)
+	next_word := read_word_at_memory_address(c, u16(sp_value), 2)
+	top_word := read_word_at_memory_address(c, u16(sp_value), 0)
 
 	set_word_at_memory_address(c, u16(index_of_sp), temp, 0)
-	set_word_at_memory_address(c, u16(index_of_sp), next_word, 2)
-	set_word_at_memory_address(c, u16(index_of_sp), top_word, 4)
+	set_word_at_memory_address(c, u16(index_of_sp), top_word, 2)
+	set_word_at_memory_address(c, u16(index_of_sp), next_word, 4)
 }
 
 execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
@@ -996,6 +1035,8 @@ execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	sp_value := c.Registers[index_of_sp]
 	op := c.Registers[i.instruction.third_nibble]
 
+	c.nan_flag = false
+	c.overflow_flag = false
 
 	if c.Registers[index_of_sp] + 2 >= len(c.Memory) {
 		c.error_flag = true
@@ -1097,7 +1138,6 @@ execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 			},
 		)
 		return nil
-
 	}
 
 	log.error("failed to exectue sop:", i)
@@ -1425,10 +1465,10 @@ execute_store_byte_offset_instruction :: proc(c: ^Computer, i: Decoded_Instructi
 
 
 execute_load_immediate_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
-	address := i.instruction.third_nibble
+	assignment_register := i.instruction.third_nibble
 	value := read_next_word(c)
 
-	c.Registers[address] = value
+	c.Registers[assignment_register] = value
 }
 
 execute_load_store_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
@@ -1533,24 +1573,23 @@ execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Er
 		execute_misc_instruction(c, i) or_return
 	case ALU_Instruction:
 		execute_ALU_instruction(c, i) or_return
-		return nil
 	case Stack_Instruction:
 		execute_stack_instruction(c, i) or_return
-		return nil
 	case Test_Instruction:
 		execute_test_instruction(c, i) or_return
-		return nil
 	case Load_Store_Register_Instruction:
 		execute_load_store_register_instruction(c, i) or_return
-		return nil
 	case Load_Store_Instruction:
 		execute_load_store_instruction(c, i) or_return
-		return nil
 	case Jump_Register_Instruction:
 		execute_jump_register(c, i)
-		return nil
 	case Jump_Instruction:
 		execute_jump_instruction(c, i) or_return
+	}
+
+	if len(c.error_info) > 0 || c.error_flag == true {
+		return .Runtime_Errors_Occured
+	} else {
 		return nil
 	}
 

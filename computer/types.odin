@@ -25,6 +25,7 @@ Execution_Error :: enum {
 	Failed_To_Set_Word,
 	Failed_To_Execute_Instruction,
 	Read_Write_Error,
+	Runtime_Errors_Occured,
 }
 
 Computer :: struct {
