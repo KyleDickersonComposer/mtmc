@@ -212,6 +212,37 @@ push_word_at_stack_address :: proc(c: ^Computer, index_of_sp: u16, value: i16, s
 	c.Memory[sp + sp_offset + 1] = second_byte
 }
 
+decode_misc_instruction :: proc(
+	i: Instruction,
+) -> (
+	Decoded_Instruction,
+	Instruction_Decoding_Error,
+) {
+	op := i.second_nibble
+
+	switch op {
+	case 0b0000:
+		return {type = .sys, instruction = i}, nil
+	case 0b0001:
+		return {type = .mov, instruction = i}, nil
+	case 0b0010:
+		return {type = .inc, instruction = i}, nil
+	case 0b0011:
+		return {type = .dec, instruction = i}, nil
+	case 0b0100:
+		return {type = .seti, instruction = i}, nil
+	case 0b0101:
+		return {type = .mcp, instruction = i}, nil
+	case 0b1000:
+		return {type = .debug, instruction = i}, nil
+	case 0b1111:
+		return {type = .nop, instruction = i}, nil
+	}
+
+	log.errorf("invalid misc instruction: %b", i)
+	return {}, .Invalid_Misc_Instruction
+}
+
 decode_ALU_instruction :: proc(
 	i: Instruction,
 ) -> (
@@ -404,37 +435,6 @@ decode_jump_instruction :: proc(
 	return {}, .Invalid_Jump_Instruction
 }
 
-decode_misc_instruction :: proc(
-	i: Instruction,
-) -> (
-	Decoded_Instruction,
-	Instruction_Decoding_Error,
-) {
-	op := i.second_nibble
-
-	switch op {
-	case 0b0000:
-		return {type = .sys, instruction = i}, nil
-	case 0b0001:
-		return {type = .mov, instruction = i}, nil
-	case 0b0010:
-		return {type = .inc, instruction = i}, nil
-	case 0b0011:
-		return {type = .dec, instruction = i}, nil
-	case 0b0100:
-		return {type = .seti, instruction = i}, nil
-	case 0b0101:
-		return {type = .mcp, instruction = i}, nil
-	case 0b1000:
-		return {type = .debug, instruction = i}, nil
-	case 0b1111:
-		return {type = .nop, instruction = i}, nil
-	}
-
-	log.errorf("invalid misc instruction: %b", i)
-	return {}, .Invalid_Misc_Instruction
-}
-
 decode_instruction :: proc(
 	instruction_bytes: u16,
 ) -> (
@@ -464,6 +464,175 @@ decode_instruction :: proc(
 
 	log.errorf("expected a valid instruction, got: %b", instruction_bytes)
 	return {}, .Invalid_Top_Nibble
+}
+
+execute_syscall :: proc(c: ^Computer, i: Decoded_Instruction) {
+	third_nibble := i.instruction.third_nibble
+	fourth_nibble := i.instruction.fourth_nibble
+	syscall_code := (third_nibble << 8) | fourth_nibble
+
+	// TODO: implement the syscalls, pull the stuff from the stack or the argument registers as needed etc...
+	switch syscall_code {
+	case 0x0:
+		// syscall_exit(c, i)
+		return
+	case 0x1:
+		// syscall_rint(c, i)
+		return
+	case 0x2:
+		// syscall_wint(c, i)
+		return
+	case 0x3:
+		// syscall_rstr(c, i)
+		return
+	case 0x4:
+		// syscall_wchr(c, i)
+		return
+	case 0x5:
+		// syscall_rchr(c, i)
+		return
+	case 0x6:
+		// syscall_wstr(c, i)
+		return
+	case 0x7:
+		// syscall_printf(c, i)
+		return
+	case 0x8:
+		// syscall_atoi(c, i)
+		return
+	case 0x10:
+		// syscall_rfile(c, i)
+		return
+	case 0x11:
+		// syscall_wfile(c, i)
+		return
+	case 0x12:
+		// cwd(c, i)
+		return
+	case 0x13:
+		// syscall_chdir(c, i)
+		return
+	case 0x14:
+		// syscall_dirent(c, i)
+		return
+	case 0x15:
+		// syscall_dfile(c, i)
+		return
+	case 0x20:
+		// syscall_rnd(c, i)
+		return
+	case 0x21:
+		// syscall_sleep(c, i)
+		return
+	case 0x22:
+		// syscall_timer(c, i)
+		return
+	case 0x30:
+		// syscall_fbreset(c, i)
+		return
+	case 0x31:
+		// syscall_fbstat(c, i)
+		return
+	case 0x32:
+		// syscall_fbset(c, i)
+		return
+	case 0x33:
+		// syscall_fbline(c, i)
+		return
+	case 0x34:
+		// syscall_fbrect(c, i)
+		return
+	case 0x35:
+		// syscall_fbflush(c, i)
+		return
+	case 0x3A:
+		// syscall_joystick(c, i)
+		return
+	case 0x3B:
+		// syscall_scolor(c, i)
+		return
+	case 0x40:
+		// syscall_memcpy(c, i)
+		return
+	case 0x50:
+		// syscall_drawing(c, i)
+		return
+	case 0xFF:
+		// syscall_error(c, i)
+		return
+	}
+}
+
+execute_mov :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+	value := c.Registers[i.instruction.fourth_nibble]
+
+	c.Registers[assignment_register] = value
+}
+
+execute_inc :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+	value := i.instruction.fourth_nibble
+
+	c.Registers[assignment_register] += i16(value)
+}
+
+execute_dec :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+	value := i.instruction.fourth_nibble
+
+	c.Registers[assignment_register] += -i16(value)
+}
+
+execute_seti :: proc(c: ^Computer, i: Decoded_Instruction) {
+	assignment_register := i.instruction.third_nibble
+	value := i.instruction.fourth_nibble
+
+	c.Registers[assignment_register] = i16(value)
+}
+
+execute_mcp :: proc(c: ^Computer, i: Decoded_Instruction) {
+	// execute_memcpy(c, i)
+}
+
+execute_debug :: proc(c: ^Computer, i: Decoded_Instruction) {
+	// execute_printf(c, i)
+}
+
+execute_nop :: proc(c: ^Computer, i: Decoded_Instruction) {
+	// empty op
+}
+
+execute_misc_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
+	switch i.type {
+	case .sys:
+		execute_syscall(c, i)
+		return nil
+	case .mov:
+		execute_mov(c, i)
+		return nil
+	case .inc:
+		execute_inc(c, i)
+		return nil
+	case .dec:
+		execute_dec(c, i)
+		return nil
+	case .seti:
+		execute_seti(c, i)
+		return nil
+	case .mcp:
+		execute_mcp(c, i)
+		return nil
+	case .debug:
+		execute_debug(c, i)
+		return nil
+	case .nop:
+		execute_nop(c, i)
+		return nil
+	}
+
+	log.error("invalid misc instruction:", i)
+	return .Failed_To_Execute_Instruction
 }
 
 check_overflow :: proc(
@@ -818,11 +987,6 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 
 	log.error("invalid immediate mode ALU instruction:", i)
 	return .Invalid_Operation_In_Immediate_Mode_ALU_Instruction
-}
-
-execute_misc_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
-	log.error("invalid misc instruction:", i)
-	return .Failed_To_Execute_Instruction
 }
 
 execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {

@@ -6,6 +6,96 @@ import "core:log"
 import "core:testing"
 
 @(test)
+mov_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	c.Registers[com.Register.t0] = 42
+
+	// mov a0 t0
+	instruction_as_bytes: u16 = 0b0000_0001_0110_0000
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, c.Registers[com.Register.a0], 42)
+}
+
+@(test)
+inc_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	c.Registers[com.Register.t0] = 40
+
+	// inc t0
+	instruction_as_bytes: u16 = 0b0000_0010_0000_0010
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, c.Registers[com.Register.t0], 42)
+}
+
+@(test)
+dec_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	c.Registers[com.Register.t0] = 44
+
+	// dec t0
+	instruction_as_bytes: u16 = 0b0000_0011_0000_0010
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	log.info(d)
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, c.Registers[com.Register.t0], 42)
+}
+
+@(test)
+seti_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	// seti t0
+	instruction_as_bytes: u16 = 0b0000_0100_0000_0010
+
+	d, err := com.decode_instruction(instruction_as_bytes)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	log.info(d)
+
+	err = com.execute_instruction(&c, d)
+	if err != nil {
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, c.Registers[com.Register.t0], 2)
+}
+
+@(test)
 add_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
