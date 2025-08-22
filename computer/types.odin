@@ -137,6 +137,8 @@ Two_Word_Instruction :: enum {
 	ltei,
 }
 
+Two_Word_Instruction_Set :: bit_set[Two_Word_Instruction]
+
 Miscellaneous_Instruction :: enum {
 	sys,
 	mov,
