@@ -1065,7 +1065,7 @@ offset_pointer_address :: proc(
 	if c.Registers[register_file_index] + offset > len(c.Memory) ||
 	   c.Registers[register_file_index] + offset < 0 {
 		log.errorf(
-			"pointer offset causes out of bounds read, address->%v, offset: %v, we only have 4096 bytes of memory",
+			"pointer offset causes out-of-bounds read, address->%v, offset: %v, we only have 4096 bytes of memory",
 			c.Registers[register_file_index],
 			offset,
 		)
@@ -1122,7 +1122,7 @@ execute_swap :: proc(c: ^Computer, i: Decoded_Instruction) {
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("swap operation read memory that was out of bounds"),
+				error_message = fmt.aprintf("swap operation read memory that was out-of-bounds"),
 			},
 		)
 
@@ -1154,7 +1154,7 @@ execute_over :: proc(c: ^Computer, i: Decoded_Instruction) {
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("over operation read memory that was out of bounds"),
+				error_message = fmt.aprintf("over operation read memory that was out-of-bounds"),
 			},
 		)
 
@@ -1177,7 +1177,7 @@ execute_rot :: proc(c: ^Computer, i: Decoded_Instruction) {
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("rot operation read memory that was out of bounds"),
+				error_message = fmt.aprintf("rot operation read memory that was out-of-bounds"),
 			},
 		)
 
@@ -1208,7 +1208,7 @@ execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("sop operation read memory that was out of bounds"),
+				error_message = fmt.aprintf("sop operation read memory that was out-of-bounds"),
 			},
 		)
 
