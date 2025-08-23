@@ -8,7 +8,7 @@ computer_state_print :: proc(c: ^com.Computer, command: string) {
 
 	if command == "registers" {
 		for reg, i in 0 ..< 16 {
-			fmt.printf("%v: %v\n", reg, c.Registers[i])
+			fmt.printf("%v: %v\n", cast(com.Register)reg, c.Registers[i])
 		}
 		return
 	}

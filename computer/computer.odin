@@ -665,7 +665,7 @@ check_overflow :: proc(
 		evaluation = f % s
 	case:
 		log.error("invalid overflow check on operation that can't overflow, op:", op)
-		return false, .Invalid_Overflow_Check_On_Operation_That_Will_Not_Overflow
+		return false, .Invalid_Overflow_Check
 	}
 
 
@@ -965,7 +965,7 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 	}
 
 	log.error("invalid immediate mode ALU instruction:", i)
-	return .Invalid_Operation_In_Immediate_Mode_ALU_Instruction
+	return .Invalid_Operation
 }
 
 execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
@@ -1107,7 +1107,6 @@ execute_swap :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 		return
 	}
-
 
 	temp := read_word_at_memory_address(c, u16(sp_value), 0)
 	value := read_word_at_memory_address(c, u16(sp_value), 2)
