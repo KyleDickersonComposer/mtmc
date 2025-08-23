@@ -14,10 +14,10 @@ computer_state_print :: proc(c: ^com.Computer, command: string) {
 	}
 
 	if command == "flags" {
-		fmt.printf("t: %d\n", cast(u8)c.test_flag)
-		fmt.printf("o: %d\n", cast(u8)c.overflow_flag)
-		fmt.printf("n: %d\n", cast(u8)c.nan_flag)
-		fmt.printf("e: %d\n", cast(u8)c.error_flag)
+		fmt.printf("test:     %d\n", cast(u8)c.test_flag)
+		fmt.printf("overflow: %d\n", cast(u8)c.overflow_flag)
+		fmt.printf("nan:      %d\n", cast(u8)c.nan_flag)
+		fmt.printf("error:    %d\n", cast(u8)c.error_flag)
 		return
 	}
 
