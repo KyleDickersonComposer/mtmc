@@ -110,7 +110,16 @@ update :: proc(c: ^com.Computer, running: ^bool, buf: []u8) -> Error {
 		term.print_help(input)
 		term.computer_state_print(c, input)
 
-		command := assembler.parse_command(c, input) or_return
+		tokens := make([dynamic]assembler.Token)
+
+		command, error := assembler.tokenize_command(c, &tokens, input)
+		if error != nil {
+			log.error(error)
+			return nil
+		}
+
+		log.info(tokens)
+
 		assembler.execute_command(c, command) or_return
 	}
 	return nil
