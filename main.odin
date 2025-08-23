@@ -1,13 +1,16 @@
 package main
 
+import "assembler"
 import com "computer"
+import term "terminal"
+
+import rl "vendor:raylib"
+
 import "core:c"
 import "core:fmt"
 import "core:log"
 import "core:os"
 import "core:strings"
-import term "terminal"
-import rl "vendor:raylib"
 
 HEADLESS :: #config(HEADLESS, false)
 
@@ -28,7 +31,7 @@ symbols: []rune
 Error :: union {
 	Gui_Error,
 	com.Computer_Error,
-	term.Terminal_Error,
+	assembler.Assembler_Error,
 }
 
 Gui_Error :: enum {
@@ -104,9 +107,11 @@ update :: proc(c: ^com.Computer, running: ^bool, buf: []u8) -> Error {
 			os.exit(0)
 		}
 
-		term.print_help_text(input)
+		term.print_help(input)
+		term.computer_state_print(c, input)
 
-		command := term.parse_command(c, input) or_return
+		command := assembler.parse_command(c, input) or_return
+		assembler.execute_command(c, command) or_return
 	}
 	return nil
 }

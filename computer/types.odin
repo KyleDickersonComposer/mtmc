@@ -26,6 +26,7 @@ Execution_Error :: enum {
 	Failed_To_Execute_Instruction,
 	Read_Write_Error,
 	Runtime_Errors_Occured,
+	Invalid_Syscall_Code,
 }
 
 Computer :: struct {
@@ -216,12 +217,12 @@ Jump_Instruction :: enum {
 }
 
 IO_Mapping :: enum {
-	up     = 0x80,
-	down   = 0x40,
-	left   = 0x20,
-	right  = 0x10,
-	start  = 0x08,
-	select = 0x04,
-	b      = 0x02,
 	a      = 0x01,
+	b      = 0x02,
+	select = 0x04,
+	start  = 0x08,
+	right  = 0x10,
+	left   = 0x20,
+	down   = 0x40,
+	up     = 0x80,
 }

@@ -466,101 +466,105 @@ decode_instruction :: proc(
 	return {}, .Invalid_Top_Nibble
 }
 
-execute_syscall :: proc(c: ^Computer, i: Decoded_Instruction) {
+execute_syscall :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
 	third_nibble := i.instruction.third_nibble
 	fourth_nibble := i.instruction.fourth_nibble
 	syscall_code := (third_nibble << 8) | fourth_nibble
 
 	// TODO: implement the syscalls, pull the stuff from the stack or the argument registers as needed etc...
+	log.error("most syscalls aren't implemented right now")
 	switch syscall_code {
 	case 0x0:
 		// syscall_exit(c, i)
-		return
+		return nil
 	case 0x1:
 		// syscall_rint(c, i)
-		return
+		return nil
 	case 0x2:
 		// syscall_wint(c, i)
-		return
+		return nil
 	case 0x3:
 		// syscall_rstr(c, i)
-		return
+		return nil
 	case 0x4:
 		// syscall_wchr(c, i)
-		return
+		return nil
 	case 0x5:
 		// syscall_rchr(c, i)
-		return
+		return nil
 	case 0x6:
 		// syscall_wstr(c, i)
-		return
+		return nil
 	case 0x7:
 		// syscall_printf(c, i)
-		return
+		return nil
 	case 0x8:
 		// syscall_atoi(c, i)
-		return
+		return nil
 	case 0x10:
 		// syscall_rfile(c, i)
-		return
+		return nil
 	case 0x11:
 		// syscall_wfile(c, i)
-		return
+		return nil
 	case 0x12:
 		// cwd(c, i)
-		return
+		return nil
 	case 0x13:
 		// syscall_chdir(c, i)
-		return
+		return nil
 	case 0x14:
 		// syscall_dirent(c, i)
-		return
+		return nil
 	case 0x15:
 		// syscall_dfile(c, i)
-		return
+		return nil
 	case 0x20:
 		// syscall_rnd(c, i)
-		return
+		return nil
 	case 0x21:
 		// syscall_sleep(c, i)
-		return
+		return nil
 	case 0x22:
 		// syscall_timer(c, i)
-		return
+		return nil
 	case 0x30:
 		// syscall_fbreset(c, i)
-		return
+		return nil
 	case 0x31:
 		// syscall_fbstat(c, i)
-		return
+		return nil
 	case 0x32:
 		// syscall_fbset(c, i)
-		return
+		return nil
 	case 0x33:
 		// syscall_fbline(c, i)
-		return
+		return nil
 	case 0x34:
 		// syscall_fbrect(c, i)
-		return
+		return nil
 	case 0x35:
 		// syscall_fbflush(c, i)
-		return
+		return nil
 	case 0x3A:
 		// syscall_joystick(c, i)
-		return
+		return nil
 	case 0x3B:
 		// syscall_scolor(c, i)
-		return
+		return nil
 	case 0x40:
 		// syscall_memcpy(c, i)
-		return
+		return nil
 	case 0x50:
 		// syscall_drawing(c, i)
-		return
+		return nil
 	case 0xFF:
 		// syscall_error(c, i)
-		return
+		return nil
 	}
+
+	log.error("invalid syscall code:", syscall_code)
+	return .Invalid_Syscall_Code
 }
 
 execute_mov :: proc(c: ^Computer, i: Decoded_Instruction) {
@@ -894,19 +898,6 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 			pc := c.Registers[Register.pc]
 
 			c.nan_flag = true
-			append(
-				&c.error_info,
-				Debug_Error_Info {
-					pc = c.Registers[Register.pc],
-					sp = c.Registers[Register.sp],
-					error_message = fmt.aprintf(
-						"div by zero at pc: 0x%04X (instruction %d)",
-						pc,
-						pc / 2,
-					),
-				},
-			)
-
 			return nil
 		}
 		c.overflow_flag = check_overflow(first_operand, next_word, .mul) or_return
@@ -917,18 +908,6 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 			pc := c.Registers[Register.pc]
 
 			c.nan_flag = true
-			append(
-				&c.error_info,
-				Debug_Error_Info {
-					pc = c.Registers[Register.pc],
-					sp = c.Registers[Register.sp],
-					error_message = fmt.aprintf(
-						"div by zero at pc: 0x%04X (instruction %d)",
-						pc,
-						pc / 2,
-					),
-				},
-			)
 			return nil
 		}
 		c.overflow_flag = check_overflow(first_operand, next_word, .mul) or_return
@@ -1222,27 +1201,33 @@ execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	switch op {
 	// add
 	case 0b0000:
-		check_overflow(first_operand, second_operand, .add) or_return
+		c.overflow_flag = check_overflow(first_operand, second_operand, .add) or_return
 		push_word_at_stack_address(c, u16(index_of_sp), first_operand + second_operand, 0)
 		return nil
 	//sub
 	case 0b0001:
-		check_overflow(first_operand, second_operand, .sub) or_return
+		c.overflow_flag = check_overflow(first_operand, second_operand, .sub) or_return
 		push_word_at_stack_address(c, u16(index_of_sp), first_operand - second_operand, 0)
 		return nil
 	// mul
 	case 0b0010:
-		check_overflow(first_operand, second_operand, .mul) or_return
+		c.overflow_flag = check_overflow(first_operand, second_operand, .mul) or_return
 		push_word_at_stack_address(c, u16(index_of_sp), first_operand * second_operand, 0)
 		return nil
 	// div
 	case 0b0011:
-		check_overflow(first_operand, second_operand, .div) or_return
+		c.overflow_flag = check_overflow(first_operand, second_operand, .div) or_return
+		if second_operand == 0 {
+			c.nan_flag = true
+		}
 		push_word_at_stack_address(c, u16(index_of_sp), first_operand / second_operand, 0)
 		return nil
 	// mod
 	case 0b0100:
-		check_overflow(first_operand, second_operand, .mod) or_return
+		c.overflow_flag = check_overflow(first_operand, second_operand, .mod) or_return
+		if second_operand == 0 {
+			c.nan_flag = true
+		}
 		push_word_at_stack_address(c, u16(index_of_sp), first_operand % second_operand, 0)
 		return nil
 	// add
@@ -1358,6 +1343,8 @@ execute_eq :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand == second_operand {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 }
 
@@ -1367,6 +1354,8 @@ execute_neq :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand != second_operand {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 }
 
@@ -1376,6 +1365,8 @@ execute_gt :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand > second_operand {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 }
 
@@ -1385,6 +1376,8 @@ execute_gte :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand >= second_operand {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 }
 
@@ -1394,6 +1387,8 @@ execute_lt :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand < second_operand {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 }
 
@@ -1403,6 +1398,8 @@ execute_lte :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand <= second_operand {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 }
 
@@ -1412,6 +1409,8 @@ execute_eqi :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand == i16(second_operand) {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 }
 
@@ -1421,6 +1420,8 @@ execute_neqi :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand != i16(second_operand) {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 }
 
@@ -1430,6 +1431,8 @@ execute_gti :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand > i16(second_operand) {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 
 }
@@ -1440,6 +1443,8 @@ execute_gtei :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand >= i16(second_operand) {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 
 }
@@ -1450,6 +1455,8 @@ execute_lti :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand < i16(second_operand) {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 
 }
@@ -1460,6 +1467,8 @@ execute_ltei :: proc(c: ^Computer, i: Decoded_Instruction) {
 
 	if first_operand <= i16(second_operand) {
 		c.test_flag = true
+	} else {
+		c.test_flag = false
 	}
 
 }

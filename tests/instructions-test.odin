@@ -142,7 +142,7 @@ mul_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 42
 	c.Registers[com.Register.t1] = 27
 
-	// div t0 t1
+	// mul t0 t1
 	instruction_as_bytes: u16 = 0b0001_0010_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -208,7 +208,7 @@ and_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 42
 	c.Registers[com.Register.t1] = 27
 
-	// div t0 t1
+	// and t0 t1
 	instruction_as_bytes: u16 = 0b0001_0101_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -230,7 +230,7 @@ or_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 42
 	c.Registers[com.Register.t1] = 27
 
-	// div t0 t1
+	// or t0 t1
 	instruction_as_bytes: u16 = 0b0001_0110_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -252,7 +252,7 @@ xor_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 42
 	c.Registers[com.Register.t1] = 27
 
-	// div t0 t1
+	// xor t0 t1
 	instruction_as_bytes: u16 = 0b0001_0111_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -274,7 +274,7 @@ shl_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 4
 	c.Registers[com.Register.t1] = 2
 
-	// div t0 t1
+	// shl t0 t1
 	instruction_as_bytes: u16 = 0b0001_1000_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -296,7 +296,7 @@ shr_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 4
 	c.Registers[com.Register.t1] = 2
 
-	// div t0 t1
+	// shr t0 t1
 	instruction_as_bytes: u16 = 0b0001_1001_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -318,7 +318,7 @@ min_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 4
 	c.Registers[com.Register.t1] = 2
 
-	// div t0 t1
+	// min t0 t1
 	instruction_as_bytes: u16 = 0b0001_1010_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -340,7 +340,7 @@ max_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 4
 	c.Registers[com.Register.t1] = 2
 
-	// div t0 t1
+	// max t0 t1
 	instruction_as_bytes: u16 = 0b0001_1011_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -361,7 +361,7 @@ not_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 	c.Registers[com.Register.t0] = 42
 
-	// div t0 t1
+	// not t0
 	instruction_as_bytes: u16 = 0b0001_1100_0000_0000
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -384,7 +384,7 @@ lnot_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 	c.Registers[com.Register.t0] = 1
 
-	// div t0 t1
+	// lnot t0
 	instruction_as_bytes: u16 = 0b0001_1101_0000_0000
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -405,7 +405,7 @@ neg_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 	c.Registers[com.Register.t0] = 1
 
-	// div t0 t1
+	// neg t0 t1
 	instruction_as_bytes: u16 = 0b0001_1110_0000_0000
 
 	d, err := com.decode_instruction(instruction_as_bytes)

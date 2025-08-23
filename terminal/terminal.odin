@@ -4,12 +4,13 @@ import com "../computer/"
 import "core:fmt"
 import "core:log"
 
-parse_command :: proc(c: ^com.Computer, command: string) -> (Parsed_Command, Terminal_Error) {
+computer_state_print :: proc(c: ^com.Computer, command: string) {
+
 	if command == "registers" {
 		for reg, i in 0 ..< 16 {
 			fmt.printf("%v: %v\n", reg, c.Registers[i])
 		}
-		return {}, nil
+		return
 	}
 
 	if command == "flags" {
@@ -17,12 +18,12 @@ parse_command :: proc(c: ^com.Computer, command: string) -> (Parsed_Command, Ter
 		fmt.printf("o: %d\n", cast(u8)c.overflow_flag)
 		fmt.printf("n: %d\n", cast(u8)c.nan_flag)
 		fmt.printf("e: %d\n", cast(u8)c.error_flag)
-		return {}, nil
+		return
 	}
 
 	if command == "info" {
 		fmt.println(c.error_info)
-		return {}, nil
+		return
 	}
 
 	if command == "memory" {
@@ -39,13 +40,12 @@ parse_command :: proc(c: ^com.Computer, command: string) -> (Parsed_Command, Ter
 			fmt.print(b, " ")
 		}
 		fmt.println()
-		return {}, nil
+		return
 	}
 
-	return {}, .Failed
 }
 
-print_help_text :: proc(command: string) {
+print_help :: proc(command: string) {
 	if command == "help" || command == "?" {
 		fmt.println(
 			"Type the commands below for more information on how to use them!\n",
