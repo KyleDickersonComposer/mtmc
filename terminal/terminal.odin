@@ -97,7 +97,7 @@ execute_command :: proc(c: ^com.Computer, tokens: ^[dynamic]assembler.Token) -> 
 		}
 	}
 
-	log.error("invalid command")
+	log.error("invalid command", tokens)
 	return .Invalid_Command
 }
 

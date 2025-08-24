@@ -59,7 +59,7 @@ peek_lexeme :: proc(
 			return str, nil
 		}
 
-		if unicode.is_alpha(p.current) || unicode.is_number(p.current) {
+		if unicode.is_alpha(p.current) || unicode.is_number(p.current) || p.current == '_' {
 			append(&arr, peek)
 		}
 
@@ -123,12 +123,35 @@ eat_lexeme :: proc(
 ) {
 	arr = make([dynamic]rune)
 	for {
+		if p.index > len(p.data) do return
+
+		if unicode.is_alpha(p.current) || unicode.is_number(p.current) || p.current == '_' {
+			append(&arr, eat(p) or_return)
+		} else {
+			return arr, nil
+		}
+	}
+
+	log.error("failed to eat lexeme", arr)
+	return nil, .Failed_To_Eat_Lexeme
+}
+
+eat_number :: proc(
+	p: ^Parser,
+	allocator := context.allocator,
+) -> (
+	arr: [dynamic]rune,
+	err: Assembler_Error,
+) {
+	arr = make([dynamic]rune)
+	for {
 		if p.index >= len(p.data) do return
 
-		if unicode.is_alpha(p.current) ||
-		   unicode.is_number(p.current) ||
-		   p.current == '_' ||
-		   p.current == '-' {
+		if p.current == '-' {
+			append(&arr, eat(p) or_return)
+		}
+
+		if unicode.is_number(p.current) {
 			append(&arr, eat(p) or_return)
 		} else {
 			return arr, nil
@@ -1444,7 +1467,15 @@ tokenize_command :: proc(
 		}
 
 		if unicode.is_number(p.current) || p.current == '-' {
-			arr := eat_lexeme(p) or_return
+			arr := eat_number(p) or_return
+
+			// NOTE: just a hyphen
+
+			if len(arr) == 1 && !unicode.is_number(arr[0]) {
+				log.error("invalid command, got '-'")
+				continue
+			}
+
 			lexeme := utf8.runes_to_string(arr[:])
 			append(
 				t,
@@ -1458,18 +1489,18 @@ tokenize_command :: proc(
 			continue
 		}
 
-		arr := eat_lexeme(p) or_return
-		defer delete(arr)
-		lexeme := utf8.runes_to_string(arr[:])
+		if len(peeked) > 1 {
+			arr := eat_lexeme(p) or_return
 
-		append(t, Token{type = .Unknown, lexeme = lexeme, line = p.line_number})
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		if len(arr) > 0 {
+			append(t, Token{type = .Unknown, lexeme = lexeme, line = p.line_number})
 			continue
 		}
 
 		eated := eat(p) or_return
-		log.error("hit last case in parser, eating:", eated)
+		log.error("invalid command, got:", eated)
 		continue
 	}
 
