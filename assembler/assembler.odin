@@ -13,6 +13,61 @@ init_parser :: proc(data: []rune) -> Parser {
 	return {data = data, current = data[0], line_number = 1}
 }
 
+emit_ALU_instruction :: proc(tokens: ^[dynamic]Token) -> (u16, Assembler_Error) {
+	inst := tokens[0]
+	first_register := tokens[1]
+	second_register := tokens[2]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0001
+	byte_code.second_nibble = cast(u16)inst.value.(com.ALU_Instruction)
+	byte_code.third_nibble = cast(u16)first_register.value.(com.Register)
+	byte_code.fourth_nibble = cast(u16)second_register.value.(com.Register)
+
+	return cast(u16)byte_code, nil
+}
+
+emit_bytecode :: proc(
+	tokens: ^[dynamic]Token,
+	allocator := context.allocator,
+) -> (
+	instruction: u16,
+	err: Assembler_Error,
+) {
+	token_count := len(tokens)
+
+	if token_count == 3 {
+
+		if tokens[0].type != .Instruction {
+			log.error("expected a valid instruction, got:", tokens[0].lexeme)
+
+			return 0, .Invalid_Instruction
+		}
+
+		if tokens[1].type != .Register || tokens[2].type != .Register {
+			log.error(
+				"expected a first and second instruction to be registers, got:",
+				tokens[1].lexeme,
+				tokens[2].lexeme,
+			)
+
+			return 0, .Invalid_Instruction
+		}
+
+		#partial switch _ in tokens[0].value {
+		case com.ALU_Instruction:
+			return emit_ALU_instruction(tokens)
+		}
+	}
+
+	if token_count == 2 {}
+
+	if token_count == 1 {}
+
+	return 0, .Invalid_Instruction
+}
+
 eat :: proc(p: ^Parser) -> (rune, Assembler_Error) {
 	if p.index >= len(p.data) {
 		log.error("tried to eat OOB")
@@ -1501,7 +1556,9 @@ tokenize_command :: proc(
 
 		eated := eat(p) or_return
 		log.error("invalid command, got:", eated)
-		continue
+		// TODO: is this the best way to handle failed commands?
+		clear(t)
+		return
 	}
 
 	return nil

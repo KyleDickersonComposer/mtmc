@@ -31,7 +31,7 @@ shutdown_computer :: proc(c: ^Computer) {
 read_next_word :: proc(c: ^Computer) -> i16 {
 	pc := c.Registers[Register.pc]
 
-	if pc + 2 >= len(c.Memory) {
+	if pc + 2 >= len(c.Memory) || pc + 2 < 0 {
 		c.error_flag = true
 		append(
 			&c.error_info,
@@ -56,7 +56,7 @@ read_next_word :: proc(c: ^Computer) -> i16 {
 read_next_byte :: proc(c: ^Computer) -> u8 {
 	pc := c.Registers[Register.pc]
 
-	if pc + 1 >= len(c.Memory) {
+	if pc + 1 >= len(c.Memory) || pc + 1 < 0 {
 		c.error_flag = true
 		append(
 			&c.error_info,
@@ -78,7 +78,7 @@ read_next_byte :: proc(c: ^Computer) -> u8 {
 write_next_word :: proc(c: ^Computer, value: i16, pc_offset: i16) {
 	pc := c.Registers[Register.pc] + pc_offset
 
-	if pc + 2 >= len(c.Memory) {
+	if pc + 2 >= len(c.Memory) || pc + 2 < 0 {
 		c.error_flag = true
 		append(
 			&c.error_info,
@@ -205,6 +205,7 @@ push_word_at_stack_address :: proc(c: ^Computer, index_of_sp: u16, value: i16, s
 
 
 	offset_pointer_address(c, i16(index_of_sp), -2)
+
 
 	sp := c.Registers[index_of_sp]
 
@@ -1037,21 +1038,32 @@ offset_pointer_address :: proc(
 	register_file_index: i16,
 	offset: i16,
 ) -> Execution_Error {
-	// TODO: we might not want this to error return an error?
-	if register_file_index > 20 || register_file_index < 0 {
+	if register_file_index > 15 || register_file_index < 0 {
 		log.error("invalid register_file_index", register_file_index)
-		return .Failed_To_Execute_Instruction
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("invalid index into registers file, expected 0-15"),
+			},
+		)
+
+		return nil
 	}
 
-	// TODO: we might not want this to error return an error?
 	if c.Registers[register_file_index] + offset > len(c.Memory) ||
 	   c.Registers[register_file_index] + offset < 0 {
-		log.errorf(
-			"pointer offset causes out-of-bounds read, address->%v, offset: %v, we only have 4096 bytes of memory",
-			c.Registers[register_file_index],
-			offset,
+		log.error("invalid register_file_index", register_file_index)
+		append(
+			&c.error_info,
+			Debug_Error_Info {
+				pc = c.Registers[Register.pc],
+				sp = c.Registers[Register.sp],
+				error_message = fmt.aprintf("invalid index into registers file, expected 0-15"),
+			},
 		)
-		return .Failed_To_Execute_Instruction
+		return nil
 	}
 
 	c.Registers[register_file_index] += offset

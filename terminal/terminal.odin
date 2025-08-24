@@ -74,7 +74,7 @@ execute_command :: proc(c: ^com.Computer, tokens: ^[dynamic]assembler.Token) -> 
 				token_three := tokens[2]
 
 				if token_three.type != .Immediate_Integer {
-					log.error("expected third argument to be an register's index")
+					log.error("expected second argument to be an immediate integer")
 					return nil
 				}
 
@@ -90,7 +90,7 @@ execute_command :: proc(c: ^com.Computer, tokens: ^[dynamic]assembler.Token) -> 
 
 
 			case:
-				log.error("expected second argument to be a register")
+				log.error("expected first argument to be a register")
 				return nil
 			}
 
@@ -98,6 +98,8 @@ execute_command :: proc(c: ^com.Computer, tokens: ^[dynamic]assembler.Token) -> 
 	}
 
 	log.error("invalid command", tokens)
+	// TODO: is this the best way to handle failed commands?
+	clear(tokens)
 	return .Invalid_Command
 }
 
