@@ -2,6 +2,7 @@ package computer
 
 import "core:fmt"
 import "core:log"
+import "core:os"
 
 POSITIVE_OVERFLOW :: 32767
 NEGATIVE_OVERFLOW :: -32768
@@ -12,7 +13,7 @@ init_computer :: proc(allocator := context.allocator) -> Computer {
 		error_info = errors,
 	}
 
-	// NOTE: start sp at top byte of second to last word
+	// NOTE: sp starts OOB then decrements by two bytes for each push
 	c.Registers[Register.sp] = len(c.Memory)
 	return c
 }
@@ -23,6 +24,8 @@ shutdown_computer :: proc(c: ^Computer) {
 	}
 
 	delete(c.error_info)
+
+	os.exit(0)
 }
 
 read_next_word :: proc(c: ^Computer) -> i16 {
