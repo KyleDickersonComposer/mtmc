@@ -13,7 +13,25 @@ init_parser :: proc(data: []rune) -> Parser {
 	return {data = data, current = data[0], line_number = 1}
 }
 
-emit_ALU_instruction :: proc(tokens: ^[dynamic]Token) -> (u16, Assembler_Error) {
+emit_immediate_ALU_instruction :: proc(c: ^com.Computer, tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[1]
+	register := tokens[2]
+	imm := tokens[3]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0001
+	byte_code.second_nibble = 0b1111
+	byte_code.third_nibble = cast(u16)register.value.(com.Register)
+	byte_code.fourth_nibble = cast(u16)op.value.(com.ALU_Instruction)
+
+	// NOTE: I don't know how good of an idea this is?
+	com.write_next_word(c, i16(imm.value.(int)), 2)
+
+	return cast(u16)byte_code
+}
+
+emit_ALU_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	inst := tokens[0]
 	first_register := tokens[1]
 	second_register := tokens[2]
@@ -25,10 +43,78 @@ emit_ALU_instruction :: proc(tokens: ^[dynamic]Token) -> (u16, Assembler_Error) 
 	byte_code.third_nibble = cast(u16)first_register.value.(com.Register)
 	byte_code.fourth_nibble = cast(u16)second_register.value.(com.Register)
 
-	return cast(u16)byte_code, nil
+	return cast(u16)byte_code
+}
+
+emit_stack_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	inst := tokens[0]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0010
+	byte_code.second_nibble = cast(u16)inst.value.(com.Stack_Instruction)
+	byte_code.fourth_nibble = 0b1101
+
+	return cast(u16)byte_code
+}
+
+emit_push_and_pop_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	inst := tokens[0]
+	register := tokens[1]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0010
+	byte_code.second_nibble = cast(u16)inst.value.(com.Stack_Instruction)
+	byte_code.third_nibble = cast(u16)register.value.(com.Register)
+	byte_code.fourth_nibble = 0b1101
+
+	return cast(u16)byte_code
+}
+
+emit_stack_instruction_with_sp :: proc(tokens: ^[dynamic]Token) -> u16 {
+	inst := tokens[0]
+	sp := tokens[1]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0010
+	byte_code.second_nibble = cast(u16)inst.value.(com.Stack_Instruction)
+	byte_code.third_nibble = cast(u16)inst.value.(com.Stack_Instruction)
+	byte_code.fourth_nibble = cast(u16)sp.value.(int)
+
+	return cast(u16)byte_code
+}
+
+emit_stack_ALU_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[1]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0010
+	byte_code.second_nibble = 0b0111
+	byte_code.third_nibble = cast(u16)op.value.(com.ALU_Instruction)
+	byte_code.fourth_nibble = 0b1101
+
+	return cast(u16)byte_code
+}
+
+emit_stack_ALU_instruction_with_sp :: proc(tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[1]
+	register := tokens[2]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0010
+	byte_code.second_nibble = 0b0111
+	byte_code.third_nibble = cast(u16)op.value.(com.ALU_Instruction)
+	byte_code.fourth_nibble = cast(u16)register.value.(com.Register)
+
+	return cast(u16)byte_code
 }
 
 emit_bytecode :: proc(
+	c: ^com.Computer,
 	tokens: ^[dynamic]Token,
 	allocator := context.allocator,
 ) -> (
@@ -37,34 +123,52 @@ emit_bytecode :: proc(
 ) {
 	token_count := len(tokens)
 
-	if token_count == 3 {
+	if token_count == 4 {
+		if tokens[0].value == .imm {
+			return emit_immediate_ALU_instruction(c, tokens), nil
+		}
 
+	}
+
+	if token_count == 3 {
 		if tokens[0].type != .Instruction {
 			log.error("expected a valid instruction, got:", tokens[0].lexeme)
 
 			return 0, .Invalid_Instruction
 		}
 
-		if tokens[1].type != .Register || tokens[2].type != .Register {
-			log.error(
-				"expected a first and second instruction to be registers, got:",
-				tokens[1].lexeme,
-				tokens[2].lexeme,
-			)
-
-			return 0, .Invalid_Instruction
+		if tokens[0].value == .sop {
+			return emit_stack_ALU_instruction_with_sp(tokens), nil
 		}
 
 		#partial switch _ in tokens[0].value {
 		case com.ALU_Instruction:
-			return emit_ALU_instruction(tokens)
+			return emit_ALU_instruction(tokens), nil
+		case com.Stack_Instruction:
+			return emit_stack_instruction_with_sp(tokens), nil
 		}
 	}
 
-	if token_count == 2 {}
+	if token_count == 2 {
+		if tokens[0].value == .push || tokens[0].value == .pop {
+			return emit_push_and_pop_instruction(tokens), nil
+		}
+
+		if tokens[0].value == .pop {
+			log.info("here?")
+			return emit_stack_ALU_instruction(tokens), nil
+		}
+
+		#partial switch _ in tokens[0].value {
+
+		case com.Stack_Instruction:
+			return emit_stack_instruction(tokens), nil
+		}
+	}
 
 	if token_count == 1 {}
 
+	log.info("hello?")
 	return 0, .Invalid_Instruction
 }
 

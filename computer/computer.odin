@@ -203,9 +203,7 @@ push_word_at_stack_address :: proc(c: ^Computer, index_of_sp: u16, value: i16, s
 		)
 	}
 
-
 	offset_pointer_address(c, i16(index_of_sp), -2)
-
 
 	sp := c.Registers[index_of_sp]
 
@@ -884,6 +882,9 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 
 	next_word := read_next_word(c)
 
+	log.info("op:", op)
+	log.info("pc:", pc)
+
 	switch op {
 	case .add:
 		check_overflow(first_operand, next_word, .add) or_return
@@ -1039,7 +1040,6 @@ offset_pointer_address :: proc(
 	offset: i16,
 ) -> Execution_Error {
 	if register_file_index > 15 || register_file_index < 0 {
-		log.error("invalid register_file_index", register_file_index)
 		append(
 			&c.error_info,
 			Debug_Error_Info {
@@ -1049,21 +1049,26 @@ offset_pointer_address :: proc(
 			},
 		)
 
-		return nil
+		return .Runtime_Errors_Occured
 	}
 
 	if c.Registers[register_file_index] + offset > len(c.Memory) ||
 	   c.Registers[register_file_index] + offset < 0 {
-		log.error("invalid register_file_index", register_file_index)
 		append(
 			&c.error_info,
 			Debug_Error_Info {
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
-				error_message = fmt.aprintf("invalid index into registers file, expected 0-15"),
+				error_message = fmt.aprintf(
+					"offsetting the pointer at address:",
+					c.Registers[register_file_index],
+					"by offset:",
+					offset,
+					"causes out-of-bounds memory access",
+				),
 			},
 		)
-		return nil
+		return .Runtime_Errors_Occured
 	}
 
 	c.Registers[register_file_index] += offset
@@ -1189,7 +1194,7 @@ execute_rot :: proc(c: ^Computer, i: Decoded_Instruction) {
 execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	index_of_sp := i.instruction.fourth_nibble
 	sp_value := c.Registers[index_of_sp]
-	op := c.Registers[i.instruction.third_nibble]
+	op := i.instruction.third_nibble
 
 	c.nan_flag = false
 	c.overflow_flag = false
@@ -1211,10 +1216,13 @@ execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	first_operand := read_word_at_memory_address(c, u16(sp_value), 0)
 	second_operand := read_word_at_memory_address(c, u16(sp_value), 2)
 
+	c.Registers[Register.sp] += 4
 
+	log.info("op", op)
 	switch op {
 	// add
 	case 0b0000:
+		log.info("add?")
 		c.overflow_flag = check_overflow(first_operand, second_operand, .add) or_return
 		push_word_at_stack_address(c, u16(index_of_sp), first_operand + second_operand, 0)
 		return nil
