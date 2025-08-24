@@ -21,7 +21,6 @@ Token_Kind :: enum {
 	Immediate_String,
 	Syscall,
 	Label,
-	EOF,
 }
 
 Token :: struct {
@@ -44,8 +43,6 @@ Token_Value :: union {
 	int,
 	string,
 }
-
-Parsed_Command :: struct {}
 
 Parser :: struct {
 	data:        []rune,

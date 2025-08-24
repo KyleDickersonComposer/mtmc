@@ -100,7 +100,7 @@ update :: proc(c: ^com.Computer, running: ^bool, buf: []u8) -> Error {
 			return .IO_Error
 		}
 
-		input := strings.trim_space(transmute(string)buf[:count])
+		input := transmute(string)buf[:count]
 
 		if input == "exit" {
 			fmt.println("Buh-bye now!")
@@ -112,15 +112,14 @@ update :: proc(c: ^com.Computer, running: ^bool, buf: []u8) -> Error {
 
 		tokens := make([dynamic]assembler.Token)
 
-		command, error := assembler.tokenize_command(c, &tokens, input)
+		error := assembler.tokenize_command(c, &tokens, input)
 		if error != nil {
 			log.error(error)
 			return nil
 		}
 
 		log.info(tokens)
-
-		assembler.execute_command(c, command) or_return
+		// emit the machine instructions from the tokens?
 	}
 	return nil
 }

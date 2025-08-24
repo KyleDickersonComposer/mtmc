@@ -6,32 +6,6 @@ import "core:strconv"
 import "core:unicode"
 import "core:unicode/utf8"
 
-parse_data_section :: proc(
-	c: ^com.Computer,
-	p: ^Parsed_Command,
-	command: []rune,
-) -> Assembler_Error {
-
-	return nil
-}
-
-parse_code_section :: proc(
-	c: ^com.Computer,
-	p: ^Parsed_Command,
-	command: string,
-) -> Assembler_Error {
-
-	return nil
-}
-
-parse_assembly_file :: proc() -> Assembler_Error {
-	return nil
-}
-
-emit_assembler_instructions :: proc() -> ([]u8, Assembler_Error) {
-	return nil, nil
-}
-
 init_parser :: proc(data: []rune) -> Parser {
 	assert(len(data) > 0)
 
@@ -52,8 +26,6 @@ eat :: proc(p: ^Parser) -> (rune, Assembler_Error) {
 	} else {
 		p.current = utf8.RUNE_EOF
 	}
-
-	log.info("eated:", r)
 
 	return r, nil
 }
@@ -97,6 +69,28 @@ peek_lexeme :: proc(
 	return "", .Failed_To_Eat_Lexeme
 }
 
+eat_string :: proc(
+	p: ^Parser,
+	allocator := context.allocator,
+) -> (
+	arr: [dynamic]rune,
+	err: Assembler_Error,
+) {
+	arr = make([dynamic]rune)
+	for {
+		if p.index >= len(p.data) do return
+
+		if p.current == '"' || p.current == utf8.RUNE_EOF {
+			return
+		}
+
+		append(&arr, eat(p) or_return)
+	}
+
+	log.error("failed to eat string", arr)
+	return nil, .Failed_To_Eat_Lexeme
+}
+
 eat_lexeme :: proc(
 	p: ^Parser,
 	allocator := context.allocator,
@@ -119,18 +113,9 @@ eat_lexeme :: proc(
 	return nil, .Failed_To_Eat_Lexeme
 }
 
-execute_command :: proc(c: ^com.Computer, command: Parsed_Command) -> Assembler_Error {
+execute_command :: proc(c: ^com.Computer) -> Assembler_Error {
 	// throw the parsed command into the execute flow?
 	// need to figure out how to set up things where we the pc and stuff?
-	return nil
-}
-
-tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error {
-
-	return nil
-}
-
-tokenize_register :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error {
 	return nil
 }
 
@@ -139,10 +124,9 @@ tokenize_command :: proc(
 	t: ^[dynamic]Token,
 	i: string,
 ) -> (
-	parsed: Parsed_Command,
 	err: Assembler_Error,
 ) {
-	if len(i) == 0 do return {}, nil
+	if len(i) == 0 do return nil
 
 	rs := utf8.string_to_runes(i)
 	defer delete(rs)
@@ -1395,7 +1379,7 @@ tokenize_command :: proc(
 		if p.current == '"' {
 			eat(p) or_return
 
-			arr := eat_lexeme(p) or_return
+			arr := eat_string(p) or_return
 			lexeme := utf8.runes_to_string(arr[:])
 			append(
 				t,
@@ -1426,8 +1410,8 @@ tokenize_command :: proc(
 			continue
 		}
 
-		return {}, .Bad_Command
+		return .Bad_Command
 	}
 
-	return {}, nil
+	return nil
 }
