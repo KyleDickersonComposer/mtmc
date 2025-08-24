@@ -58,15 +58,43 @@ eat :: proc(p: ^Parser) -> (rune, Assembler_Error) {
 	return r, nil
 }
 
-peek :: proc(p: ^Parser) -> (rune, Assembler_Error) {
-	if p.index + 1 >= len(p.data) {
-		log.error("tried to eat OOB")
-		return '0', .Out_Of_Bounds_Read
+peek :: proc(p: ^Parser, offset := 1) -> (rune, Assembler_Error) {
+	if p.index + offset >= len(p.data) {
+		return utf8.RUNE_EOF, nil
 	}
 
-	r := p.data[p.index + 1]
+	r := p.data[p.index + offset]
 
 	return r, nil
+}
+
+peek_lexeme :: proc(
+	p: ^Parser,
+	allocator := context.allocator,
+) -> (
+	str: string,
+	err: Assembler_Error,
+) {
+	arr := make([dynamic]rune)
+	if p.index >= len(p.data) do return
+
+	i := 0
+	for {
+		peek := peek(p, i) or_return
+		if peek == ' ' || peek == utf8.RUNE_EOF {
+			str = utf8.runes_to_string(arr[:])
+			return str, nil
+		}
+
+		if unicode.is_alpha(p.current) || unicode.is_number(p.current) {
+			append(&arr, peek)
+		}
+
+		i += 1
+	}
+
+	log.error("failed to peek lexeme", arr)
+	return "", .Failed_To_Eat_Lexeme
 }
 
 eat_lexeme :: proc(
@@ -112,17 +140,13 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 	switch p.current {
 	// a => add, and
 	case 'a':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'd' && next != 'n' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
-
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "add" {
+		if peeked == "add" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .add, line = p.line_number},
@@ -130,7 +154,10 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "and" {
+		if peeked == "and" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .and, line = p.line_number},
@@ -143,17 +170,13 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// d => dec, div, dup, drop, debug
 	case 'd':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'e' && next != 'i' && next != 'u' && next != 'r' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
-
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "dec" {
+		if peeked == "dec" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .dec, line = p.line_number},
@@ -161,7 +184,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if next == 'e' && lexeme == "debug" {
+		if peeked == "debug" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .debug, line = p.line_number},
@@ -169,7 +196,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if next == 'i' && lexeme == "div" {
+		if peeked == "div" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .div, line = p.line_number},
@@ -177,7 +208,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if next == 'u' && lexeme == "dup" {
+		if peeked == "dup" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .dup, line = p.line_number},
@@ -185,7 +220,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if next == 'r' && lexeme == "drop" {
+		if peeked == "drop" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .drop, line = p.line_number},
@@ -198,22 +237,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// e => eq, eqi
 	case 'e':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'q' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "eq" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if next != 'q' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
-
-		if next == 'q' && lexeme == "eq" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .eq, line = p.line_number},
@@ -221,7 +252,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if next == 'q' && lexeme == "eqi" {
+		if peeked == "eqi" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .eqi, line = p.line_number},
@@ -234,17 +269,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// g => gt, gti, gte, gtei
 	case 'g':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 't' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "gt" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if next == 't' && lexeme == "gt" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .gt, line = p.line_number},
@@ -252,7 +284,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if next == 't' && lexeme == "gti" {
+		if peeked == "gti" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .gti, line = p.line_number},
@@ -260,7 +296,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if next == 't' && lexeme == "gte" {
+		if peeked == "gte" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .gte, line = p.line_number},
@@ -268,7 +308,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if next == 't' && lexeme == "gtei" {
+		if peeked == "gtei" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .gtei, line = p.line_number},
@@ -281,17 +325,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// i => inc, imm
 	case 'i':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'n' && next != 'm' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "inc" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if next == 'n' && lexeme == "inc" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .inc, line = p.line_number},
@@ -299,7 +340,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if next == 'm' && lexeme == "imm" {
+		if peeked == "imm" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .imm, line = p.line_number},
@@ -312,17 +357,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// j => jr, jz, jnz, jal
 	case 'j':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'r' && next != 'z' && next != 'n' && next != 'a' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "jr" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "jr" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .jr, line = p.line_number},
@@ -330,7 +372,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "jz" {
+		if peeked == "jz" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .jz, line = p.line_number},
@@ -338,14 +384,23 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "jnz" {
+		if peeked == "jnz" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .jnz, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "jal" {
+
+		if peeked == "jal" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .jal, line = p.line_number},
@@ -358,17 +413,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// l => lnot, lt, lte, lti, ltei, lwr, lbr, lw, lb, lwo, lbo, li, la
 	case 'l':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 't' && next != 'n' && next != 'w' && next != 'b' && next != 'a' && next != 'i' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "lnot" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "lnot" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lnot, line = p.line_number},
@@ -376,14 +428,23 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "lt" {
+		if peeked == "lt" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lt, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "lte" {
+
+		if peeked == "lte" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lte, line = p.line_number},
@@ -391,14 +452,22 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "lti" {
+		if peeked == "lti" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lti, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "ltei" {
+		if peeked == "ltei" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .ltei, line = p.line_number},
@@ -406,14 +475,22 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "lwr" {
+		if peeked == "lwr" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lwr, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "lbr" {
+		if peeked == "lbr" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lbr, line = p.line_number},
@@ -421,14 +498,22 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "lb" {
+		if peeked == "lb" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lb, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "lw" {
+		if peeked == "lw" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lw, line = p.line_number},
@@ -436,14 +521,22 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "lwo" {
+		if peeked == "lwo" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lwo, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "lbo" {
+		if peeked == "lbo" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .lbo, line = p.line_number},
@@ -451,14 +544,22 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "li" {
+		if peeked == "li" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .li, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "la" {
+		if peeked == "la" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .la, line = p.line_number},
@@ -471,17 +572,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// m => mov, mul, mod, min, max, mcp
 	case 'm':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'o' && next != 'u' && next != 'o' && next != 'i' && next != 'a' && next != 'c' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "mov" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "mov" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .mov, line = p.line_number},
@@ -489,14 +587,22 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "mul" {
+		if peeked == "mul" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .mul, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "mod" {
+		if peeked == "mod" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .mod, line = p.line_number},
@@ -504,14 +610,22 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "min" {
+		if peeked == "min" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .min, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "max" {
+		if peeked == "max" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .max, line = p.line_number},
@@ -519,7 +633,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "mcp" {
+		if peeked == "mcp" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .mcp, line = p.line_number},
@@ -532,17 +650,24 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// n => not, neg, nop
 	case 'n':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'e' && next != 'o' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
+		if peeked == "not" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+			append_elems(
+				t,
+				Token{type = .Instruction, lexeme = lexeme, value = .not, line = p.line_number},
+			)
+			return nil
 		}
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "not" {
+		if peeked == "neg" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .neg, line = p.line_number},
@@ -550,15 +675,10 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "neg" {
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .neg, line = p.line_number},
-			)
-			return nil
-		}
-
-		if lexeme == "nop" {
+		if peeked == "nop" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .nop, line = p.line_number},
@@ -571,17 +691,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// o => or, over
 	case 'o':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'r' && next != 'v' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "or" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "or" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .or, line = p.line_number},
@@ -589,7 +706,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "over" {
+		if peeked == "over" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .over, line = p.line_number},
@@ -602,17 +723,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// p => push, pop, pushi
 	case 'p':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'o' && next != 'u' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "push" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "push" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .push, line = p.line_number},
@@ -620,7 +738,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "pushi" {
+		if peeked == "pushi" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .pushi, line = p.line_number},
@@ -628,7 +750,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "pop" {
+		if peeked == "pop" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .pop, line = p.line_number},
@@ -641,17 +767,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// r => rot, ret
 	case 'r':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'e' && next != 'o' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "rot" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "rot" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .rot, line = p.line_number},
@@ -659,7 +782,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "ret" {
+		if peeked == "ret" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .ret, line = p.line_number},
@@ -672,23 +799,15 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// s => seti, sub, shl, shr, swap, sop, swr, sbr, sw, swo, sb, sbo, sys
 	case 's':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'e' &&
-		   next != 'u' &&
-		   next != 'h' &&
-		   next != 'w' &&
-		   next != 'b' &&
-		   next != 'y' &&
-		   next != 'o' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "seti" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
+			lexeme := utf8.runes_to_string(arr[:])
 
-		if lexeme == "seti" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .seti, line = p.line_number},
@@ -696,7 +815,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "sub" {
+		if peeked == "sub" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .sub, line = p.line_number},
@@ -704,7 +827,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "shl" {
+		if peeked == "shl" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .shl, line = p.line_number},
@@ -712,42 +839,69 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "shr" {
+		if peeked == "shr" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .shr, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "swap" {
+
+		if peeked == "swap" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .swap, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "sop" {
+
+		if peeked == "sop" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .sop, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "swr" {
+		if peeked == "swr" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .swr, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "sbr" {
+		if peeked == "sbr" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .sbr, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "sw" {
+
+		if peeked == "sw" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .sw, line = p.line_number},
@@ -755,7 +909,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "swo" {
+		if peeked == "swo" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .swo, line = p.line_number},
@@ -763,21 +921,34 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 			return nil
 		}
 
-		if lexeme == "sb" {
+		if peeked == "sb" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .sb, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "sbo" {
+		if peeked == "sbo" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .sbo, line = p.line_number},
 			)
 			return nil
 		}
-		if lexeme == "sys" {
+
+		if peeked == "sys" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
+
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .sys, line = p.line_number},
@@ -790,17 +961,14 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 
 	// x => xor
 	case 'x':
-		next := peek(p) or_return
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
 
-		if next != 'o' {
-			log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-			return .Invalid_Instruction
-		}
+		if peeked == "xor" {
+			arr := eat_lexeme(p) or_return
+			defer delete(arr)
+			lexeme := utf8.runes_to_string(arr[:])
 
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		if lexeme == "xor" {
 			append_elems(
 				t,
 				Token{type = .Instruction, lexeme = lexeme, value = .xor, line = p.line_number},
@@ -812,9 +980,11 @@ tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error 
 		return .Invalid_Instruction
 	}
 
-	log.error("hit bottom of instruction parse switch")
-	log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-	return .Invalid_Instruction
+	return nil
+}
+
+tokenize_register :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error {
+	return nil
 }
 
 tokenize_command :: proc(
