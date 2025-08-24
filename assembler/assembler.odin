@@ -28,8 +28,6 @@ eat :: proc(p: ^Parser) -> (rune, Assembler_Error) {
 		p.current = utf8.RUNE_EOF
 	}
 
-	log.info("eated:", r)
-
 	return r, nil
 }
 
@@ -116,12 +114,6 @@ eat_lexeme :: proc(
 	return nil, .Failed_To_Eat_Lexeme
 }
 
-execute_command :: proc(c: ^com.Computer) -> Assembler_Error {
-	// throw the parsed command into the execute flow?
-	// need to figure out how to set up things where we the pc and stuff?
-	return nil
-}
-
 tokenize_command :: proc(
 	c: ^com.Computer,
 	t: ^[dynamic]Token,
@@ -141,7 +133,6 @@ tokenize_command :: proc(
 
 	for {
 		if p.current == utf8.RUNE_EOF {
-			log.info("hit EOF")
 			return
 		}
 
@@ -153,17 +144,6 @@ tokenize_command :: proc(
 
 		if unicode.is_white_space(p.current) {
 			eat(p) or_return
-			continue
-		}
-
-		if p.current == 'j' && len(p.data) == 1 {
-			arr := eat_lexeme(p) or_return
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .j, line = p.line_number},
-			)
 			continue
 		}
 
@@ -425,6 +405,18 @@ tokenize_command :: proc(
 
 		// j => jr, jz, jnz, jal
 		case 'j':
+			if peeked == "j" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .j, line = p.line_number},
+				)
+				continue
+			}
+
 			if peeked == "jr" {
 				arr := eat_lexeme(p) or_return
 				defer delete(arr)
