@@ -125,7 +125,10 @@ eat_lexeme :: proc(
 	for {
 		if p.index >= len(p.data) do return
 
-		if unicode.is_alpha(p.current) || unicode.is_number(p.current) || p.current == '_' {
+		if unicode.is_alpha(p.current) ||
+		   unicode.is_number(p.current) ||
+		   p.current == '_' ||
+		   p.current == '-' {
 			append(&arr, eat(p) or_return)
 		} else {
 			return arr, nil
@@ -1440,7 +1443,7 @@ tokenize_command :: proc(
 			continue
 		}
 
-		if unicode.is_number(p.current) {
+		if unicode.is_number(p.current) || p.current == '-' {
 			arr := eat_lexeme(p) or_return
 			lexeme := utf8.runes_to_string(arr[:])
 			append(

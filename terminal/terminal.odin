@@ -78,7 +78,14 @@ execute_command :: proc(c: ^com.Computer, tokens: ^[dynamic]assembler.Token) -> 
 					return nil
 				}
 
-				c.Registers[v] = i16(token_three.value.(int))
+				int_value, ok := token_three.value.(int)
+				if !ok ||
+				   int_value <= com.NEGATIVE_OVERFLOW ||
+				   int_value >= com.POSITIVE_OVERFLOW {
+					log.error("expected third arguement to be a signed 16-bit integer")
+				}
+
+				c.Registers[v] = i16(int_value)
 				return nil
 
 
