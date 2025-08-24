@@ -100,7 +100,7 @@ update :: proc(c: ^com.Computer, running: ^bool, buf: []u8) -> Error {
 			return .IO_Error
 		}
 
-		input := transmute(string)buf[:count]
+		input := strings.trim_space(transmute(string)buf[:count])
 
 		if input == "exit" {
 			fmt.println("Buh-bye now!")

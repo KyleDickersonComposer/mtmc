@@ -3,6 +3,7 @@ package assembler
 import com "../computer"
 import "core:log"
 import "core:strconv"
+import "core:strings"
 import "core:unicode"
 import "core:unicode/utf8"
 
@@ -26,6 +27,8 @@ eat :: proc(p: ^Parser) -> (rune, Assembler_Error) {
 	} else {
 		p.current = utf8.RUNE_EOF
 	}
+
+	log.info("eated:", r)
 
 	return r, nil
 }
@@ -137,7 +140,10 @@ tokenize_command :: proc(
 	line_number := 1
 
 	for {
-		if p.current == utf8.RUNE_EOF do return
+		if p.current == utf8.RUNE_EOF {
+			log.info("hit EOF")
+			return
+		}
 
 		if p.current == '\n' {
 			eat(p) or_return
@@ -1380,6 +1386,7 @@ tokenize_command :: proc(
 			eat(p) or_return
 
 			arr := eat_string(p) or_return
+			defer delete(arr)
 			lexeme := utf8.runes_to_string(arr[:])
 			append(
 				t,
@@ -1410,7 +1417,12 @@ tokenize_command :: proc(
 			continue
 		}
 
-		return .Bad_Command
+		arr := eat_lexeme(p) or_return
+		lexeme := utf8.runes_to_string(arr[:])
+
+		append(t, Token{type = .Unknown, lexeme = lexeme, line = p.line_number})
+
+		continue
 	}
 
 	return nil

@@ -21,6 +21,7 @@ Token_Kind :: enum {
 	Immediate_String,
 	Syscall,
 	Label,
+	Unknown,
 }
 
 Token :: struct {
