@@ -1440,7 +1440,6 @@ tokenize_command :: proc(
 			continue
 		}
 
-
 		if unicode.is_number(p.current) {
 			arr := eat_lexeme(p) or_return
 			lexeme := utf8.runes_to_string(arr[:])
@@ -1457,10 +1456,17 @@ tokenize_command :: proc(
 		}
 
 		arr := eat_lexeme(p) or_return
+		defer delete(arr)
 		lexeme := utf8.runes_to_string(arr[:])
 
 		append(t, Token{type = .Unknown, lexeme = lexeme, line = p.line_number})
 
+		if len(arr) > 0 {
+			continue
+		}
+
+		eated := eat(p) or_return
+		log.error("hit last case in parser, eating:", eated)
 		continue
 	}
 

@@ -32,6 +32,7 @@ Error :: union {
 	Gui_Error,
 	com.Computer_Error,
 	assembler.Assembler_Error,
+	term.Terminal_Error,
 }
 
 Gui_Error :: enum {
@@ -67,7 +68,7 @@ graphics_init :: proc() {
 		symbols[i] = rune(0xE000 + i)
 	}
 
-	rl.InitWindow(0, 0, "Odin-MTMC")
+	rl.InitWindow(0, 0, "Odin-raylib-MTMC")
 
 	font = rl.LoadFontEx(
 		"fonts/Courier_Prime/CourierPrime-Regular.ttf",
@@ -102,24 +103,19 @@ update :: proc(c: ^com.Computer, running: ^bool, buf: []u8) -> Error {
 
 		input := strings.trim_space(transmute(string)buf[:count])
 
-		if input == "exit" {
-			fmt.println("Buh-bye now!")
-			os.exit(0)
-		}
-
-		term.print_help(input)
-		term.computer_state_print(c, input)
-
 		tokens := make([dynamic]assembler.Token)
+		defer delete(tokens)
 
-		error := assembler.tokenize_command(c, &tokens, input)
-		if error != nil {
-			log.error(error)
+		assembler.tokenize_command(c, &tokens, input) or_return
+
+		if len(tokens) == 0 do return nil
+
+		if tokens[0].type == .Unknown {
+			term.execute_command(c, &tokens) or_return
 			return nil
 		}
 
 		log.info(tokens)
-		// emit the machine instructions from the tokens?
 	}
 	return nil
 }
@@ -159,7 +155,11 @@ main_loop :: proc(c: ^com.Computer) {
 	}
 
 	for running {
-		update(c, &running, io_buf[:])
+		err := update(c, &running, io_buf[:])
+		if err != nil {
+			log.error(err)
+			continue
+		}
 
 		when !HEADLESS {
 			if rl.WindowShouldClose() do running = false
