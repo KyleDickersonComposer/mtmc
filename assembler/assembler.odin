@@ -103,7 +103,7 @@ eat_lexeme :: proc(
 	for {
 		if p.index >= len(p.data) do return
 
-		if unicode.is_alpha(p.current) || unicode.is_number(p.current) {
+		if unicode.is_alpha(p.current) || unicode.is_number(p.current) || p.current == '_' {
 			append(&arr, eat(p) or_return)
 		} else {
 			return arr, nil
@@ -1393,6 +1393,21 @@ tokenize_command :: proc(
 			eat(p) or_return
 			continue
 		}
+
+		if p.current == ':' {
+			append(t, Token{type = .Symbol, lexeme = ":", value = ":", line = p.line_number})
+
+			eat(p)
+			continue
+		}
+
+		if p.current == '.' {
+			append(t, Token{type = .Symbol, lexeme = ".", value = ".", line = p.line_number})
+
+			eat(p)
+			continue
+		}
+
 
 		if unicode.is_number(p.current) {
 			arr := eat_lexeme(p) or_return

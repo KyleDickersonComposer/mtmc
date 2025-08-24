@@ -19,8 +19,7 @@ Token_Kind :: enum {
 	Register,
 	Immediate_Integer,
 	Immediate_String,
-	Syscall,
-	Label,
+	Symbol,
 	Unknown,
 }
 
