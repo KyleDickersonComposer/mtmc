@@ -92,6 +92,28 @@ eat_string :: proc(
 	return nil, .Failed_To_Eat_Lexeme
 }
 
+eat_line :: proc(
+	p: ^Parser,
+	allocator := context.allocator,
+) -> (
+	arr: [dynamic]rune,
+	err: Assembler_Error,
+) {
+	arr = make([dynamic]rune)
+	for {
+		if p.index >= len(p.data) do return
+
+		if p.current == '\n' || p.current == utf8.RUNE_EOF {
+			return
+		}
+
+		append(&arr, eat(p) or_return)
+	}
+
+	log.error("failed to eat line", arr)
+	return nil, .Failed_To_Eat_Lexeme
+}
+
 eat_lexeme :: proc(
 	p: ^Parser,
 	allocator := context.allocator,
@@ -1397,14 +1419,24 @@ tokenize_command :: proc(
 		if p.current == ':' {
 			append(t, Token{type = .Symbol, lexeme = ":", value = ":", line = p.line_number})
 
-			eat(p)
+			eat(p) or_return
 			continue
 		}
 
 		if p.current == '.' {
+			eat(p) or_return
+
 			append(t, Token{type = .Symbol, lexeme = ".", value = ".", line = p.line_number})
 
-			eat(p)
+			continue
+		}
+
+		if p.current == '#' {
+			arr := eat_line(p) or_return
+			defer delete(arr)
+			str := utf8.runes_to_string(arr[:])
+			append(t, Token{type = .Comment, lexeme = str, line = line_number, value = str})
+
 			continue
 		}
 

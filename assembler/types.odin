@@ -20,6 +20,7 @@ Token_Kind :: enum {
 	Immediate_Integer,
 	Immediate_String,
 	Symbol,
+	Comment,
 	Unknown,
 }
 
