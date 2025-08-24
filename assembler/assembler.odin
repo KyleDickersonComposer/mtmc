@@ -126,859 +126,6 @@ execute_command :: proc(c: ^com.Computer, command: Parsed_Command) -> Assembler_
 }
 
 tokenize_instruction :: proc(p: ^Parser, t: ^[dynamic]Token) -> Assembler_Error {
-	if p.current == 'j' && len(p.data) == 1 {
-		arr := eat_lexeme(p) or_return
-		lexeme := utf8.runes_to_string(arr[:])
-
-		append_elems(
-			t,
-			Token{type = .Instruction, lexeme = lexeme, value = .j, line = p.line_number},
-		)
-		return nil
-	}
-
-	switch p.current {
-	// a => add, and
-	case 'a':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "add" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .add, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "and" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .and, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// d => dec, div, dup, drop, debug
-	case 'd':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "dec" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .dec, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "debug" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .debug, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "div" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .div, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "dup" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .dup, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "drop" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .drop, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// e => eq, eqi
-	case 'e':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "eq" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .eq, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "eqi" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .eqi, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// g => gt, gti, gte, gtei
-	case 'g':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "gt" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .gt, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "gti" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .gti, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "gte" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .gte, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "gtei" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .gtei, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// i => inc, imm
-	case 'i':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "inc" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .inc, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "imm" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .imm, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// j => jr, jz, jnz, jal
-	case 'j':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "jr" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .jr, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "jz" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .jz, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "jnz" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .jnz, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "jal" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .jal, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// l => lnot, lt, lte, lti, ltei, lwr, lbr, lw, lb, lwo, lbo, li, la
-	case 'l':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "lnot" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lnot, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "lt" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lt, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "lte" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lte, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "lti" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lti, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "ltei" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .ltei, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "lwr" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lwr, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "lbr" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lbr, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "lb" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lb, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "lw" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lw, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "lwo" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lwo, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "lbo" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .lbo, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "li" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .li, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "la" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .la, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// m => mov, mul, mod, min, max, mcp
-	case 'm':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "mov" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .mov, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "mul" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .mul, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "mod" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .mod, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "min" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .min, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "max" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .max, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "mcp" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .mcp, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// n => not, neg, nop
-	case 'n':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "not" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .not, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "neg" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .neg, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "nop" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .nop, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// o => or, over
-	case 'o':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "or" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .or, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "over" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .over, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// p => push, pop, pushi
-	case 'p':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "push" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .push, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "pushi" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .pushi, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "pop" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .pop, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// r => rot, ret
-	case 'r':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "rot" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .rot, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "ret" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .ret, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// s => seti, sub, shl, shr, swap, sop, swr, sbr, sw, swo, sb, sbo, sys
-	case 's':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "seti" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .seti, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "sub" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .sub, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "shl" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .shl, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "shr" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .shr, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "swap" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .swap, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "sop" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .sop, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "swr" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .swr, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "sbr" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .sbr, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "sw" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .sw, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "swo" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .swo, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "sb" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .sb, line = p.line_number},
-			)
-			return nil
-		}
-		if peeked == "sbo" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .sbo, line = p.line_number},
-			)
-			return nil
-		}
-
-		if peeked == "sys" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .sys, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-
-	// x => xor
-	case 'x':
-		peeked := peek_lexeme(p) or_return
-		defer delete(peeked)
-
-		if peeked == "xor" {
-			arr := eat_lexeme(p) or_return
-			defer delete(arr)
-			lexeme := utf8.runes_to_string(arr[:])
-
-			append_elems(
-				t,
-				Token{type = .Instruction, lexeme = lexeme, value = .xor, line = p.line_number},
-			)
-			return nil
-		}
-
-		log.error("invalid instruction, got:", p.data, "on line:", p.line_number)
-		return .Invalid_Instruction
-	}
 
 	return nil
 }
@@ -1019,7 +166,1231 @@ tokenize_command :: proc(
 			continue
 		}
 
-		tokenize_instruction(p, t) or_return
+		if p.current == 'j' && len(p.data) == 1 {
+			arr := eat_lexeme(p) or_return
+			lexeme := utf8.runes_to_string(arr[:])
+
+			append_elems(
+				t,
+				Token{type = .Instruction, lexeme = lexeme, value = .j, line = p.line_number},
+			)
+			continue
+		}
+
+		peeked := peek_lexeme(p) or_return
+		defer delete(peeked)
+
+		switch p.current {
+		// a => add, and
+		case 'a':
+			if peeked == "add" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .add,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "and" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .and,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// d => dec, div, dup, drop, debug
+		case 'd':
+			if peeked == "dec" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .dec,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "debug" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .debug,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "div" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .div,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "dup" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .dup,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "drop" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .drop,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// e => eq, eqi
+		case 'e':
+			if peeked == "eq" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .eq, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "eqi" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .eqi,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// g => gt, gti, gte, gtei
+		case 'g':
+			if peeked == "gt" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .gt, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "gti" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .gti,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "gte" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .gte,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "gtei" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .gtei,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// i => inc, imm
+		case 'i':
+			if peeked == "inc" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .inc,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "imm" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .imm,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// j => jr, jz, jnz, jal
+		case 'j':
+			if peeked == "jr" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .jr, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "jz" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .jz, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "jnz" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .jnz,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "jal" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .jal,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+
+		// l => lnot, lt, lte, lti, ltei, lwr, lbr, lw, lb, lwo, lbo, li, la
+		case 'l':
+			if peeked == "lnot" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .lnot,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "lt" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .lt, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "lte" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .lte,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "lti" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .lti,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+			if peeked == "ltei" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .ltei,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "lwr" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .lwr,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+			if peeked == "lbr" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .lbr,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "lb" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .lb, line = p.line_number},
+				)
+				continue
+			}
+			if peeked == "lw" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .lw, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "lwo" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .lwo,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+			if peeked == "lbo" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .lbo,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "li" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .li, line = p.line_number},
+				)
+				continue
+			}
+			if peeked == "la" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .la, line = p.line_number},
+				)
+				continue
+			}
+
+		// m => mov, mul, mod, min, max, mcp
+		case 'm':
+			if peeked == "mov" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .mov,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "mul" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .mul,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+			if peeked == "mod" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .mod,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "min" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .min,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+			if peeked == "max" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .max,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "mcp" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .mcp,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// n => not, neg, nop
+		case 'n':
+			if peeked == "not" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .not,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "neg" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .neg,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "nop" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .nop,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// o => or, over
+		case 'o':
+			if peeked == "or" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .or, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "over" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .over,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// p => push, pop, pushi
+		case 'p':
+			if peeked == "push" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .push,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "pushi" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .pushi,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "pop" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .pop,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// r => rot, ret
+		case 'r':
+			if peeked == "rot" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .rot,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "ret" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .ret,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// s => seti, sub, shl, shr, swap, sop, swr, sbr, sw, swo, sb, sbo, sys
+		case 's':
+			if peeked == "seti" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .seti,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "sub" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .sub,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "shl" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .shl,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "shr" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .shr,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "swap" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .swap,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "sop" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .sop,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+			if peeked == "swr" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .swr,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+			if peeked == "sbr" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .sbr,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "sw" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .sw, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "swo" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .swo,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "sb" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Instruction, lexeme = lexeme, value = .sb, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "sbo" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .sbo,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "sys" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .sys,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+		// x => xor
+		case 'x':
+			if peeked == "xor" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .xor,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+		}
+
+		switch p.current {
+		case 't':
+			if peeked == "t0" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .t0, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "t1" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .t1, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "t2" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .t2, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "t3" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .t3, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "t4" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .t4, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "t5" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .t5, line = p.line_number},
+				)
+				continue
+			}
+
+		case 'a':
+			if peeked == "a0" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .a0, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "a1" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .a1, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "a2" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .a2, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "a3" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .a3, line = p.line_number},
+				)
+				continue
+			}
+
+		case 'r':
+			if peeked == "rv" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .rv, line = p.line_number},
+				)
+				continue
+			}
+
+			if peeked == "ra" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .ra, line = p.line_number},
+				)
+				continue
+			}
+
+		case 'f':
+			if peeked == "fp" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .fp, line = p.line_number},
+				)
+				continue
+			}
+
+		case 's':
+			if peeked == "sp" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .sp, line = p.line_number},
+				)
+				continue
+			}
+
+		case 'b':
+			if peeked == "bp" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .bp, line = p.line_number},
+				)
+				continue
+			}
+
+		case 'p':
+			if peeked == "pc" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+
+				append_elems(
+					t,
+					Token{type = .Register, lexeme = lexeme, value = .pc, line = p.line_number},
+				)
+				continue
+			}
+		}
 
 		if p.current == '"' {
 			eat(p) or_return
@@ -1054,8 +1425,9 @@ tokenize_command :: proc(
 			)
 			continue
 		}
-	}
 
+		return {}, .Bad_Command
+	}
 
 	return {}, nil
 }
