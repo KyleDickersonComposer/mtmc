@@ -1,4 +1,4 @@
-package computer_test
+package tests
 
 import com "../computer"
 import "core:fmt"
@@ -426,7 +426,7 @@ imm_add_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 	c.Registers[com.Register.t0] = 42
 
-	com.write_next_word(&c, 27, 2)
+	com.write_next_word(&c, 27)
 
 	// imm add t0 27
 	instruction_as_bytes: u16 = 0b0001_1111_0000_0000
@@ -895,7 +895,7 @@ gti_instruction :: proc(t: ^testing.T) {
 
 	c.Registers[com.Register.t0] = 2
 
-	// pushi 42
+	// gti t0 1
 	instruction_as_bytes: u16 = 0b0011_1010_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -917,7 +917,7 @@ gtei_instruction :: proc(t: ^testing.T) {
 
 	c.Registers[com.Register.t0] = 1
 
-	// pushi 42
+	// gtei t0 1
 	instruction_as_bytes: u16 = 0b0011_1011_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -939,7 +939,7 @@ lti_instruction :: proc(t: ^testing.T) {
 
 	c.Registers[com.Register.t0] = 0
 
-	// pushi 42
+	// lti t0 1
 	instruction_as_bytes: u16 = 0b0011_1100_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -961,7 +961,7 @@ ltei_instruction :: proc(t: ^testing.T) {
 
 	c.Registers[com.Register.t0] = 1
 
-	// pushi 42
+	// ltei t0 1
 	instruction_as_bytes: u16 = 0b0011_1101_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -1228,7 +1228,7 @@ swo_instruction :: proc(t: ^testing.T) {
 
 	com.set_word_at_memory_address(&c, u16(pc), 42, 2)
 
-	// swo
+	// swo t0 t1
 	instruction_as_bytes: u16 = 0b1000_0101_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)

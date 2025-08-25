@@ -13,6 +13,14 @@ init_parser :: proc(data: []rune) -> Parser {
 	return {data = data, current = data[0], line_number = 1}
 }
 
+free_tokens :: proc(tokens: ^[dynamic]Token) {
+	for t in tokens {
+		delete(t.lexeme)
+	}
+
+	delete(tokens^)
+}
+
 emit_immediate_ALU_instruction :: proc(c: ^com.Computer, tokens: ^[dynamic]Token) -> u16 {
 	op := tokens[1]
 	register := tokens[2]
@@ -26,12 +34,25 @@ emit_immediate_ALU_instruction :: proc(c: ^com.Computer, tokens: ^[dynamic]Token
 	byte_code.fourth_nibble = cast(u16)op.value.(com.ALU_Instruction)
 
 	// NOTE: I don't know how good of an idea this is?
-	com.write_next_word(c, i16(imm.value.(int)), 2)
+	com.write_next_word(c, i16(imm.value.(int)))
 
 	return cast(u16)byte_code
 }
 
-emit_ALU_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+emit_two_token_ALU_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	inst := tokens[0]
+	first_register := tokens[1]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0001
+	byte_code.second_nibble = cast(u16)inst.value.(com.ALU_Instruction)
+	byte_code.third_nibble = cast(u16)first_register.value.(com.Register)
+
+	return cast(u16)byte_code
+}
+
+emit_three_token_ALU_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	inst := tokens[0]
 	first_register := tokens[1]
 	second_register := tokens[2]
@@ -143,7 +164,7 @@ emit_bytecode :: proc(
 
 		#partial switch _ in tokens[0].value {
 		case com.ALU_Instruction:
-			return emit_ALU_instruction(tokens), nil
+			return emit_three_token_ALU_instruction(tokens), nil
 		case com.Stack_Instruction:
 			return emit_stack_instruction_with_sp(tokens), nil
 		}
@@ -155,20 +176,24 @@ emit_bytecode :: proc(
 		}
 
 		if tokens[0].value == .pop {
-			log.info("here?")
 			return emit_stack_ALU_instruction(tokens), nil
 		}
 
 		#partial switch _ in tokens[0].value {
-
+		case com.ALU_Instruction:
+			return emit_two_token_ALU_instruction(tokens), nil
 		case com.Stack_Instruction:
 			return emit_stack_instruction(tokens), nil
 		}
 	}
 
-	if token_count == 1 {}
+	if token_count == 1 {
+		#partial switch _ in tokens[0].value {
+		case com.Stack_Instruction:
+			return emit_stack_instruction(tokens), nil
+		}
+	}
 
-	log.info("hello?")
 	return 0, .Invalid_Instruction
 }
 
@@ -208,6 +233,8 @@ peek_lexeme :: proc(
 	err: Assembler_Error,
 ) {
 	arr := make([dynamic]rune)
+	defer delete(arr)
+
 	if p.index >= len(p.data) do return
 
 	i := 0
@@ -1627,6 +1654,7 @@ tokenize_command :: proc(
 
 		if unicode.is_number(p.current) || p.current == '-' {
 			arr := eat_number(p) or_return
+			defer delete(arr)
 
 			// NOTE: just a hyphen
 

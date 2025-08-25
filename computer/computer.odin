@@ -75,8 +75,8 @@ read_next_byte :: proc(c: ^Computer) -> u8 {
 	return byte
 }
 
-write_next_word :: proc(c: ^Computer, value: i16, pc_offset: i16) {
-	pc := c.Registers[Register.pc] + pc_offset
+write_next_word :: proc(c: ^Computer, value: i16) {
+	pc := c.Registers[Register.pc]
 
 	if pc + 2 >= len(c.Memory) || pc + 2 < 0 {
 		c.error_flag = true
@@ -94,8 +94,8 @@ write_next_word :: proc(c: ^Computer, value: i16, pc_offset: i16) {
 
 	raw := u16(value)
 
-	c.Memory[pc] = u8(raw >> 8)
-	c.Memory[pc + 1] = u8(raw)
+	c.Memory[pc + 2] = u8(raw >> 8)
+	c.Memory[pc + 3] = u8(raw)
 }
 
 check_is_odd :: proc(value: u16) -> bool {
@@ -882,9 +882,6 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 
 	next_word := read_next_word(c)
 
-	log.info("op:", op)
-	log.info("pc:", pc)
-
 	switch op {
 	case .add:
 		check_overflow(first_operand, next_word, .add) or_return
@@ -1060,11 +1057,9 @@ offset_pointer_address :: proc(
 				pc = c.Registers[Register.pc],
 				sp = c.Registers[Register.sp],
 				error_message = fmt.aprintf(
-					"offsetting the pointer at address:",
+					"offsetting the pointer at address: %v, by offset: %v, causes out-of-bounds memory access",
 					c.Registers[register_file_index],
-					"by offset:",
 					offset,
-					"causes out-of-bounds memory access",
 				),
 			},
 		)
@@ -1218,11 +1213,9 @@ execute_sop :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 
 	c.Registers[Register.sp] += 4
 
-	log.info("op", op)
 	switch op {
 	// add
 	case 0b0000:
-		log.info("add?")
 		c.overflow_flag = check_overflow(first_operand, second_operand, .add) or_return
 		push_word_at_stack_address(c, u16(index_of_sp), first_operand + second_operand, 0)
 		return nil
