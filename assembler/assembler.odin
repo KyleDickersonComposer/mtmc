@@ -34,7 +34,6 @@ emit_immediate_ALU_instruction :: proc(c: ^com.Computer, tokens: ^[dynamic]Token
 	byte_code.third_nibble = cast(u16)register.value.(com.Register)
 	byte_code.fourth_nibble = cast(u16)op.value.(com.ALU_Instruction)
 
-	// NOTE: I don't know how good of an idea this is?
 	com.write_next_word(c, i16(imm.value.(int)))
 	c.Registers[com.Register.dr] = i16(imm.value.(int))
 
@@ -187,7 +186,7 @@ emit_test_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	return cast(u16)byte_code
 }
 
-emit_immediate_mode_test_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+emit_immediate_test_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	op := tokens[0]
 	first_register := tokens[1]
 	last_nibble := tokens[2]
@@ -341,6 +340,24 @@ emit_load_register_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	return cast(u16)byte_code
 }
 
+emit_immediate_load_store_instruction :: proc(c: ^com.Computer, tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[0]
+	register := tokens[1]
+	imm := tokens[2]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b1000
+	byte_code.second_nibble = 0b1111
+	byte_code.third_nibble = cast(u16)register.value.(com.Register)
+	byte_code.fourth_nibble = 0b0000
+
+	com.write_next_word(c, i16(imm.value.(int)))
+	c.Registers[com.Register.dr] = i16(imm.value.(int))
+
+	return cast(u16)byte_code
+}
+
 type_check_instruction :: proc(tokens: ^[dynamic]Token, types: ..typeid) -> Assembler_Error {
 	if len(types) == 0 || len(tokens) == 0 {
 		log.error("expected more arguments")
@@ -446,6 +463,17 @@ emit_bytecode :: proc(
 			return emit_pushi_instruction_with_sp(c, tokens), nil
 		}
 
+		if tokens[0].value == .li || tokens[0].value == .la {
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Load_Store_Instruction),
+				typeid_of(com.Register),
+				typeid_of(int),
+			) or_return
+
+			return emit_immediate_load_store_instruction(c, tokens), nil
+		}
+
 		#partial switch _ in tokens[0].value {
 		case com.ALU_Instruction:
 			type_check_instruction(
@@ -508,7 +536,7 @@ emit_bytecode :: proc(
 					typeid_of(int),
 				) or_return
 
-				return emit_immediate_mode_test_instruction(tokens), nil
+				return emit_immediate_test_instruction(tokens), nil
 			}
 
 		case com.Load_Store_Instruction:
@@ -1294,6 +1322,7 @@ tokenize_command :: proc(
 				)
 				continue
 			}
+
 			if peeked == "la" {
 				arr := eat_lexeme(p) or_return
 				defer delete(arr)

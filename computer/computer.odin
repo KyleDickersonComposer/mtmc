@@ -1585,7 +1585,6 @@ execute_load_store_register_instruction :: proc(
 	return .Failed_To_Execute_Instruction
 }
 
-// TODO: need to handle dr register book keeping?
 execute_load_word_instruction :: proc(c: ^Computer, i: Decoded_Instruction) {
 	assignment_register := i.instruction.third_nibble
 	next_word := read_next_word(c)

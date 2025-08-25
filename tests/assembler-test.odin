@@ -1357,6 +1357,31 @@ emit_li_instruction :: proc(t: ^testing.T) {
 }
 
 @(test)
+emit_la_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	command := "la t0 0"
+	instruction_as_bytes: u16 = 0b1000_1111_0000_0000
+
+	tokens := make([dynamic]assembler.Token)
+	defer assembler.free_tokens(&tokens)
+
+	tokenizer_error := assembler.tokenize_command(&c, &tokens, command)
+	if tokenizer_error != nil {
+		log.error(tokenizer_error)
+		testing.fail(t)
+	}
+
+	byte_code, emit_error := assembler.emit_bytecode(&c, &tokens)
+	if emit_error != nil {
+		log.error(emit_error)
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, byte_code, instruction_as_bytes)
+}
+
+@(test)
 emit_jr_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
