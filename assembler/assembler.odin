@@ -196,6 +196,113 @@ emit_jump_register_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	return cast(u16)byte_code
 }
 
+emit_load_store_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[0]
+	register := tokens[1]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b1000
+	byte_code.second_nibble = cast(u16)op.value.(com.Load_Store_Instruction)
+	byte_code.third_nibble = cast(u16)register.value.(com.Register)
+
+	return cast(u16)byte_code
+}
+
+emit_load_store_offset_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[0]
+	first_register := tokens[1]
+	second_register := tokens[3]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b1000
+	byte_code.second_nibble = cast(u16)op.value.(com.Load_Store_Instruction)
+	byte_code.third_nibble = cast(u16)first_register.value.(com.Register)
+	byte_code.fourth_nibble = cast(u16)second_register.value.(com.Register)
+
+	return cast(u16)byte_code
+}
+
+emit_misc_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	if tokens[0].value == .mov {
+		first_register := tokens[1]
+		second_register := tokens[2]
+
+		byte_code: com.Instruction
+
+		byte_code.first_nibble = 0b0000
+		byte_code.second_nibble = 0b0001
+		byte_code.third_nibble = cast(u16)first_register.value.(com.Register)
+		byte_code.fourth_nibble = cast(u16)second_register.value.(com.Register)
+
+		return cast(u16)byte_code
+	}
+
+	if tokens[0].value == .inc {
+		op := tokens[0]
+		register := tokens[1]
+		int_value := tokens[2]
+
+		byte_code: com.Instruction
+
+		byte_code.first_nibble = 0b0000
+		byte_code.second_nibble = cast(u16)op.value.(com.Miscellaneous_Instruction)
+		byte_code.third_nibble = cast(u16)register.value.(com.Register)
+		byte_code.fourth_nibble = cast(u16)int_value.value.(int)
+
+		return cast(u16)byte_code
+	}
+
+	if tokens[0].value == .dec {
+		op := tokens[0]
+		register := tokens[1]
+		int_value := tokens[2]
+
+		byte_code: com.Instruction
+
+		byte_code.first_nibble = 0b0000
+		byte_code.second_nibble = cast(u16)op.value.(com.Miscellaneous_Instruction)
+		byte_code.third_nibble = cast(u16)register.value.(com.Register)
+		byte_code.fourth_nibble = cast(u16)int_value.value.(int)
+
+		return cast(u16)byte_code
+	}
+
+	if tokens[0].value == .seti {
+		first_register := tokens[1]
+		int_value := tokens[2]
+
+		byte_code: com.Instruction
+
+		byte_code.first_nibble = 0b0000
+		byte_code.second_nibble = 0b0100
+		byte_code.third_nibble = cast(u16)first_register.value.(com.Register)
+		byte_code.fourth_nibble = cast(u16)int_value.value.(int)
+
+		return cast(u16)byte_code
+	}
+
+	log.error("failed to emit misc instruction")
+	return 0
+}
+
+emit_load_register_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[0]
+	first_register := tokens[1]
+	second_register := tokens[2]
+	third_register := tokens[3]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = cast(u16)op.value.(com.Load_Store_Register_Instruction)
+	byte_code.second_nibble = cast(u16)first_register.value.(com.Register)
+	byte_code.third_nibble = cast(u16)second_register.value.(com.Register)
+	byte_code.fourth_nibble = cast(u16)third_register.value.(com.Register)
+
+	return cast(u16)byte_code
+}
+
 emit_bytecode :: proc(
 	c: ^com.Computer,
 	tokens: ^[dynamic]Token,
@@ -211,6 +318,13 @@ emit_bytecode :: proc(
 			return emit_immediate_ALU_instruction(c, tokens), nil
 		}
 
+		#partial switch v in tokens[0].value {
+		case com.Load_Store_Instruction:
+			return emit_load_store_offset_instruction(tokens), nil
+
+		case com.Load_Store_Register_Instruction:
+			return emit_load_register_instruction(tokens), nil
+		}
 	}
 
 	if token_count == 3 {
@@ -231,6 +345,9 @@ emit_bytecode :: proc(
 		case com.Stack_Instruction:
 			return emit_stack_instruction_with_sp(tokens), nil
 
+		case com.Miscellaneous_Instruction:
+			return emit_misc_instruction(tokens), nil
+
 		case com.Test_Instruction:
 			#partial switch v in tokens[2].value {
 			case com.Register:
@@ -238,6 +355,9 @@ emit_bytecode :: proc(
 			case int:
 				return emit_immediate_mode_test_instruction(tokens), nil
 			}
+
+		case com.Load_Store_Instruction:
+			return emit_load_store_instruction(tokens), nil
 		}
 	}
 
@@ -250,7 +370,7 @@ emit_bytecode :: proc(
 			return emit_stack_ALU_instruction(tokens), nil
 		}
 
-		#partial switch _ in tokens[0].value {
+		#partial switch v in tokens[0].value {
 		case com.ALU_Instruction:
 			return emit_two_token_ALU_instruction(tokens), nil
 		case com.Stack_Instruction:

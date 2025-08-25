@@ -199,8 +199,8 @@ Load_Store_Instruction :: enum {
 	swo,
 	sb,
 	sbo,
-	li,
-	la,
+	li = 0b1111,
+	la = 0b1111,
 }
 
 Jump_Register_Instruction :: enum {

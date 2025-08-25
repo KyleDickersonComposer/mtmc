@@ -35,7 +35,7 @@ emit_mov_instruction :: proc(t: ^testing.T) {
 emit_inc_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "inc t0"
+	command := "inc t0 2"
 	instruction_as_bytes: u16 = 0b0000_0010_0000_0010
 
 	tokens := make([dynamic]assembler.Token)
@@ -60,7 +60,7 @@ emit_inc_instruction :: proc(t: ^testing.T) {
 emit_dec_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "dec t0"
+	command := "dec t0 2"
 	instruction_as_bytes: u16 = 0b0000_0011_0000_0010
 
 	tokens := make([dynamic]assembler.Token)
@@ -85,7 +85,7 @@ emit_dec_instruction :: proc(t: ^testing.T) {
 emit_seti_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "seti 2"
+	command := "seti t0 2"
 	instruction_as_bytes: u16 = 0b0000_0100_0000_0010
 
 	tokens := make([dynamic]assembler.Token)
@@ -771,8 +771,6 @@ emit_neq_instruction :: proc(t: ^testing.T) {
 		testing.fail(t)
 	}
 
-	log.info(tokens)
-
 	byte_code, emit_error := assembler.emit_bytecode(&c, &tokens)
 	if emit_error != nil {
 		log.error(emit_error)
@@ -1161,7 +1159,7 @@ emit_lw_instruction :: proc(t: ^testing.T) {
 emit_lwo_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "lwo t0 42"
+	command := "lwo t0 0 t1 "
 	instruction_as_bytes: u16 = 0b1000_0001_0000_0001
 
 	tokens := make([dynamic]assembler.Token)
@@ -1210,8 +1208,7 @@ emit_lb_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_lbo_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-
-	command := "lbo t0 42"
+	command := "lbo t0 0 t1"
 	instruction_as_bytes: u16 = 0b1000_0011_0000_0001
 
 	tokens := make([dynamic]assembler.Token)
@@ -1228,6 +1225,7 @@ emit_lbo_instruction :: proc(t: ^testing.T) {
 		log.error(emit_error)
 		testing.fail(t)
 	}
+
 
 	testing.expect_value(t, byte_code, instruction_as_bytes)
 }
@@ -1261,7 +1259,7 @@ emit_sw_instruction :: proc(t: ^testing.T) {
 emit_swo_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "swo t0 2"
+	command := "swo t0 2 t1"
 	instruction_as_bytes: u16 = 0b1000_0101_0000_0001
 
 	tokens := make([dynamic]assembler.Token)
@@ -1311,7 +1309,7 @@ emit_sb_instruction :: proc(t: ^testing.T) {
 emit_sbo_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "sbo t0 42"
+	command := "sbo t0 0 t1"
 	instruction_as_bytes: u16 = 0b1000_0111_0000_0001
 
 	tokens := make([dynamic]assembler.Token)

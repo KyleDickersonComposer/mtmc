@@ -1117,7 +1117,7 @@ lwo_instruction :: proc(t: ^testing.T) {
 
 	com.set_word_at_memory_address(&c, u16(pc), 42, 4)
 
-	// lw0 t0 42
+	// lw0 t0 t1
 	instruction_as_bytes: u16 = 0b1000_0001_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -1171,7 +1171,7 @@ lbo_instruction :: proc(t: ^testing.T) {
 
 	com.set_byte_at_memory_address(&c, u16(pc), 42, 4)
 
-	// lbo t0 42
+	// lbo t0 t1
 	instruction_as_bytes: u16 = 0b1000_0011_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
