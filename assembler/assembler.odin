@@ -36,6 +36,7 @@ emit_immediate_ALU_instruction :: proc(c: ^com.Computer, tokens: ^[dynamic]Token
 
 	// NOTE: I don't know how good of an idea this is?
 	com.write_next_word(c, i16(imm.value.(int)))
+	c.Registers[com.Register.dr] = i16(imm.value.(int))
 
 	return cast(u16)byte_code
 }
@@ -94,9 +95,9 @@ emit_push_and_pop_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	return cast(u16)byte_code
 }
 
-emit_pushi_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+emit_pushi_instruction :: proc(c: ^com.Computer, tokens: ^[dynamic]Token) -> u16 {
 	inst := tokens[0]
-	register := tokens[1]
+	imm := tokens[1]
 
 	byte_code: com.Instruction
 
@@ -105,15 +106,16 @@ emit_pushi_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	byte_code.third_nibble = 0b0000
 	byte_code.fourth_nibble = 0b1101
 
+	com.write_next_word(c, i16(imm.value.(int)))
+	c.Registers[com.Register.dr] = i16(imm.value.(int))
+
 	return cast(u16)byte_code
 }
 
-emit_pushi_instruction_with_sp :: proc(tokens: ^[dynamic]Token) -> u16 {
+emit_pushi_instruction_with_sp :: proc(c: ^com.Computer, tokens: ^[dynamic]Token) -> u16 {
 	inst := tokens[0]
 	register := tokens[1]
-
-	log.info(tokens)
-	log.info(register)
+	imm := tokens[2]
 
 	byte_code: com.Instruction
 
@@ -121,6 +123,9 @@ emit_pushi_instruction_with_sp :: proc(tokens: ^[dynamic]Token) -> u16 {
 	byte_code.second_nibble = cast(u16)inst.value.(com.Stack_Instruction)
 	byte_code.third_nibble = 0b0000
 	byte_code.fourth_nibble = cast(u16)register.value.(com.Register)
+
+	com.write_next_word(c, i16(imm.value.(int)))
+	c.Registers[com.Register.dr] = i16(imm.value.(int))
 
 	return cast(u16)byte_code
 }
@@ -438,7 +443,7 @@ emit_bytecode :: proc(
 				typeid_of(int),
 			) or_return
 
-			return emit_pushi_instruction_with_sp(tokens), nil
+			return emit_pushi_instruction_with_sp(c, tokens), nil
 		}
 
 		#partial switch _ in tokens[0].value {
@@ -544,7 +549,7 @@ emit_bytecode :: proc(
 				typeid_of(int),
 			) or_return
 
-			return emit_pushi_instruction(tokens), nil
+			return emit_pushi_instruction(c, tokens), nil
 		}
 
 		#partial switch v in tokens[0].value {

@@ -502,6 +502,7 @@ emit_imm_add_instruction :: proc(t: ^testing.T) {
 		testing.fail(t)
 	}
 
+	testing.expect_value(t, c.Registers[com.Register.dr], 27)
 	testing.expect_value(t, byte_code, instruction_as_bytes)
 }
 
@@ -709,7 +710,7 @@ emit_sop_instruction :: proc(t: ^testing.T) {
 emit_pushi_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "pushi 42 sp"
+	command := "pushi sp 42"
 	instruction_as_bytes: u16 = 0b0010_1111_0000_1101
 
 	tokens := make([dynamic]assembler.Token)
