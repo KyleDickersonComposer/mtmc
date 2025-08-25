@@ -7,10 +7,108 @@ import "core:log"
 import "core:testing"
 
 @(test)
+emit_mov_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	command := "mov a0 t0"
+	instruction_as_bytes: u16 = 0b0000_0001_0110_0000
+
+	tokens := make([dynamic]assembler.Token)
+	defer assembler.free_tokens(&tokens)
+
+	tokenizer_error := assembler.tokenize_command(&c, &tokens, command)
+	if tokenizer_error != nil {
+		log.error(tokenizer_error)
+		testing.fail(t)
+	}
+
+	byte_code, emit_error := assembler.emit_bytecode(&c, &tokens)
+	if emit_error != nil {
+		log.error(emit_error)
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, byte_code, instruction_as_bytes)
+}
+
+@(test)
+emit_inc_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	command := "inc t0"
+	instruction_as_bytes: u16 = 0b0000_0010_0000_0010
+
+	tokens := make([dynamic]assembler.Token)
+	defer assembler.free_tokens(&tokens)
+
+	tokenizer_error := assembler.tokenize_command(&c, &tokens, command)
+	if tokenizer_error != nil {
+		log.error(tokenizer_error)
+		testing.fail(t)
+	}
+
+	byte_code, emit_error := assembler.emit_bytecode(&c, &tokens)
+	if emit_error != nil {
+		log.error(emit_error)
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, byte_code, instruction_as_bytes)
+}
+
+@(test)
+emit_dec_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	command := "dec t0"
+	instruction_as_bytes: u16 = 0b0000_0011_0000_0010
+
+	tokens := make([dynamic]assembler.Token)
+	defer assembler.free_tokens(&tokens)
+
+	tokenizer_error := assembler.tokenize_command(&c, &tokens, command)
+	if tokenizer_error != nil {
+		log.error(tokenizer_error)
+		testing.fail(t)
+	}
+
+	byte_code, emit_error := assembler.emit_bytecode(&c, &tokens)
+	if emit_error != nil {
+		log.error(emit_error)
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, byte_code, instruction_as_bytes)
+}
+
+@(test)
+emit_seti_instruction :: proc(t: ^testing.T) {
+	c := com.init_computer()
+
+	command := "seti 2"
+	instruction_as_bytes: u16 = 0b0000_0100_0000_0010
+
+	tokens := make([dynamic]assembler.Token)
+	defer assembler.free_tokens(&tokens)
+
+	tokenizer_error := assembler.tokenize_command(&c, &tokens, command)
+	if tokenizer_error != nil {
+		log.error(tokenizer_error)
+		testing.fail(t)
+	}
+
+	byte_code, emit_error := assembler.emit_bytecode(&c, &tokens)
+	if emit_error != nil {
+		log.error(emit_error)
+		testing.fail(t)
+	}
+
+	testing.expect_value(t, byte_code, instruction_as_bytes)
+}
+
+@(test)
 emit_add_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "add t0 t1"
 	instruction_as_bytes: u16 = 0b0001_0000_0000_0001
@@ -36,8 +134,6 @@ emit_add_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_sub_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "sub t0 t1"
 	instruction_as_bytes: u16 = 0b0001_0001_0000_0001
@@ -63,8 +159,6 @@ emit_sub_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_mul_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "mul t0 t1"
 	instruction_as_bytes: u16 = 0b0001_0010_0000_0001
@@ -90,8 +184,6 @@ emit_mul_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_div_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "div t0 t1"
 	instruction_as_bytes: u16 = 0b0001_0011_0000_0001
@@ -117,8 +209,6 @@ emit_div_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_mod_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "mod t0 t1"
 	instruction_as_bytes: u16 = 0b0001_0100_0000_0001
@@ -144,8 +234,6 @@ emit_mod_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_and_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "and t0 t1"
 	instruction_as_bytes: u16 = 0b0001_0101_0000_0001
@@ -171,8 +259,6 @@ emit_and_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_or_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "or t0 t1"
 	instruction_as_bytes: u16 = 0b0001_0110_0000_0001
@@ -198,8 +284,6 @@ emit_or_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_xor_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "xor t0 t1"
 	instruction_as_bytes: u16 = 0b0001_0111_0000_0001
@@ -225,8 +309,6 @@ emit_xor_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_shl_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "shl t0 t1"
 	instruction_as_bytes: u16 = 0b0001_1000_0000_0001
@@ -252,8 +334,6 @@ emit_shl_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_shr_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "shr t0 t1"
 	instruction_as_bytes: u16 = 0b0001_1001_0000_0001
@@ -279,8 +359,6 @@ emit_shr_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_min_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "min t0 t1"
 	instruction_as_bytes: u16 = 0b0001_1010_0000_0001
@@ -306,8 +384,6 @@ emit_min_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_max_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
-	c.Registers[com.Register.t1] = 27
 
 	command := "max t0 t1"
 	instruction_as_bytes: u16 = 0b0001_1011_0000_0001
@@ -333,7 +409,6 @@ emit_max_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_not_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
 
 	command := "not t0"
 	instruction_as_bytes: u16 = 0b0001_1100_0000_0000
@@ -359,7 +434,6 @@ emit_not_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_lnot_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 1
 
 	command := "lnot t0"
 	instruction_as_bytes: u16 = 0b0001_1101_0000_0000
@@ -385,7 +459,6 @@ emit_lnot_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_neg_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 1
 
 	command := "neg t0"
 	instruction_as_bytes: u16 = 0b0001_1110_0000_0000
@@ -410,7 +483,6 @@ emit_neg_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_imm_add_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
 
 	command := "imm add t0 27"
 	instruction_as_bytes: u16 = 0b0001_1111_0000_0000
@@ -436,7 +508,6 @@ emit_imm_add_instruction :: proc(t: ^testing.T) {
 @(test)
 emit_push_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
-	c.Registers[com.Register.t0] = 42
 
 	command := "push t0"
 	instruction_as_bytes: u16 = 0b0010_0000_0000_1101
@@ -700,6 +771,8 @@ emit_neq_instruction :: proc(t: ^testing.T) {
 		testing.fail(t)
 	}
 
+	log.info(tokens)
+
 	byte_code, emit_error := assembler.emit_bytecode(&c, &tokens)
 	if emit_error != nil {
 		log.error(emit_error)
@@ -863,7 +936,7 @@ emit_neqi_instruction :: proc(t: ^testing.T) {
 emit_gti_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "gti t0 0"
+	command := "gti t0 1"
 	instruction_as_bytes: u16 = 0b0011_1010_0000_0001
 
 	tokens := make([dynamic]assembler.Token)
@@ -888,7 +961,7 @@ emit_gti_instruction :: proc(t: ^testing.T) {
 emit_gtei_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "gtei t0 0"
+	command := "gtei t0 1"
 	instruction_as_bytes: u16 = 0b0011_1011_0000_0001
 
 	tokens := make([dynamic]assembler.Token)
@@ -913,7 +986,7 @@ emit_gtei_instruction :: proc(t: ^testing.T) {
 emit_lti_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "lti t0 0"
+	command := "lti t0 1"
 	instruction_as_bytes: u16 = 0b0011_1100_0000_0001
 
 	tokens := make([dynamic]assembler.Token)
@@ -938,7 +1011,7 @@ emit_lti_instruction :: proc(t: ^testing.T) {
 emit_ltei_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "ltei t0 0"
+	command := "ltei t0 1"
 	instruction_as_bytes: u16 = 0b0011_1101_0000_0001
 
 	tokens := make([dynamic]assembler.Token)
@@ -1263,7 +1336,7 @@ emit_sbo_instruction :: proc(t: ^testing.T) {
 emit_li_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "li t0 42"
+	command := "li t0 0"
 	instruction_as_bytes: u16 = 0b1000_1111_0000_0000
 
 	tokens := make([dynamic]assembler.Token)
@@ -1290,7 +1363,7 @@ emit_jr_instruction :: proc(t: ^testing.T) {
 
 	command := "jr t0"
 
-	instruction_as_bytes: u16 = 0b1001_1111_0000_0000
+	instruction_as_bytes: u16 = 0b1000_0000_0000_0000
 
 	tokens := make([dynamic]assembler.Token)
 	defer assembler.free_tokens(&tokens)

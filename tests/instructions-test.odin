@@ -75,7 +75,7 @@ dec_instruction :: proc(t: ^testing.T) {
 seti_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	// seti t0
+	// seti 2
 	instruction_as_bytes: u16 = 0b0000_0100_0000_0010
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -737,7 +737,7 @@ neq_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 2
 	c.Registers[com.Register.t1] = 1
 
-	// pushi 42
+	// neq t0 t1
 	instruction_as_bytes: u16 = 0b0011_0001_0000_0001
 
 	d, err := com.decode_instruction(instruction_as_bytes)
@@ -1335,7 +1335,7 @@ jr_instruction :: proc(t: ^testing.T) {
 	c.Registers[com.Register.t0] = 42
 
 	// jr
-	instruction_as_bytes: u16 = 0b1001_1111_0000_0000
+	instruction_as_bytes: u16 = 0b1001_0000_0000_0000
 
 	d, err := com.decode_instruction(instruction_as_bytes)
 	if err != nil {
@@ -1419,7 +1419,7 @@ jal_instruction :: proc(t: ^testing.T) {
 	initial_pc := c.Registers[com.Register.pc]
 	c.test_flag = true
 
-	// jnz
+	// jal 42
 	instruction_as_bytes: u16 = 0b1111_0000_0010_1010
 
 	d, err := com.decode_instruction(instruction_as_bytes)

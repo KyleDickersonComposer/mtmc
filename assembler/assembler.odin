@@ -134,6 +134,68 @@ emit_stack_ALU_instruction_with_sp :: proc(tokens: ^[dynamic]Token) -> u16 {
 	return cast(u16)byte_code
 }
 
+emit_test_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[0]
+	first_register := tokens[1]
+	second_register := tokens[2]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0011
+	byte_code.second_nibble = cast(u16)op.value.(com.Test_Instruction)
+	byte_code.third_nibble = cast(u16)first_register.value.(com.Register)
+	byte_code.fourth_nibble = cast(u16)second_register.value.(com.Register)
+
+	return cast(u16)byte_code
+}
+
+emit_immediate_mode_test_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[0]
+	first_register := tokens[1]
+	last_nibble := tokens[2]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0011
+	byte_code.second_nibble = cast(u16)op.value.(com.Test_Instruction)
+	byte_code.third_nibble = cast(u16)first_register.value.(com.Register)
+	byte_code.fourth_nibble = cast(u16)last_nibble.value.(int)
+
+	return cast(u16)byte_code
+}
+
+emit_jump_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[0].value.(com.Jump_Instruction)
+	address := tokens[1]
+	to_int := address.value.(int)
+
+	second_nibble := u16((to_int & 0b111100000000) >> 8)
+	third_nibble := u16((to_int & 0b000011110000) >> 4)
+	fourth_nibble := u16(to_int & 0b000000001111)
+
+	byte_code: com.Instruction
+
+	// op is not the right thing! need to and it with low bits!
+	byte_code.first_nibble = cast(u16)op | 0b1100
+	byte_code.second_nibble = second_nibble
+	byte_code.third_nibble = third_nibble
+	byte_code.fourth_nibble = fourth_nibble
+
+	return cast(u16)byte_code
+}
+
+emit_jump_register_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	op := tokens[0]
+	register := tokens[1]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b1000
+	byte_code.fourth_nibble = cast(u16)register.value.(com.Register)
+
+	return cast(u16)byte_code
+}
+
 emit_bytecode :: proc(
 	c: ^com.Computer,
 	tokens: ^[dynamic]Token,
@@ -165,8 +227,17 @@ emit_bytecode :: proc(
 		#partial switch _ in tokens[0].value {
 		case com.ALU_Instruction:
 			return emit_three_token_ALU_instruction(tokens), nil
+
 		case com.Stack_Instruction:
 			return emit_stack_instruction_with_sp(tokens), nil
+
+		case com.Test_Instruction:
+			#partial switch v in tokens[2].value {
+			case com.Register:
+				return emit_test_instruction(tokens), nil
+			case int:
+				return emit_immediate_mode_test_instruction(tokens), nil
+			}
 		}
 	}
 
@@ -184,6 +255,10 @@ emit_bytecode :: proc(
 			return emit_two_token_ALU_instruction(tokens), nil
 		case com.Stack_Instruction:
 			return emit_stack_instruction(tokens), nil
+		case com.Jump_Instruction:
+			return emit_jump_instruction(tokens), nil
+		case com.Jump_Register_Instruction:
+			return emit_jump_register_instruction(tokens), nil
 		}
 	}
 
@@ -1033,6 +1108,38 @@ tokenize_command :: proc(
 						type = .Instruction,
 						lexeme = lexeme,
 						value = .neg,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "neq" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .neq,
+						line = p.line_number,
+					},
+				)
+				continue
+			}
+
+			if peeked == "neqi" {
+				arr := eat_lexeme(p) or_return
+				defer delete(arr)
+				lexeme := utf8.runes_to_string(arr[:])
+				append_elems(
+					t,
+					Token {
+						type = .Instruction,
+						lexeme = lexeme,
+						value = .neqi,
 						line = p.line_number,
 					},
 				)

@@ -168,18 +168,18 @@ Stack_Instruction :: enum {
 }
 
 Test_Instruction :: enum {
-	eq,
-	neq,
-	gt,
-	gte,
-	lt,
-	lte,
-	eqi = 0b1000,
-	neqi,
-	gti,
-	gtei,
-	lti,
-	ltei,
+	eq   = 0,
+	neq  = 1,
+	gt   = 2,
+	gte  = 3,
+	lt   = 4,
+	lte  = 5,
+	eqi  = 8,
+	neqi = 9,
+	gti  = 10,
+	gtei = 11,
+	lti  = 12,
+	ltei = 13,
 }
 
 // NOTE: special instructions with `top_nibble` that is 2 bits.
