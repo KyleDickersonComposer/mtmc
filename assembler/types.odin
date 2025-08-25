@@ -12,6 +12,7 @@ Parse_Error :: enum {
 	Failed_To_Eat_Lexeme,
 	Bad_Command,
 	Invalid_Instruction,
+	Type_Check_Failed,
 }
 
 Token_Kind :: enum {

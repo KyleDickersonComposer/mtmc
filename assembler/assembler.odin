@@ -2,6 +2,7 @@ package assembler
 
 import com "../computer"
 import "core:log"
+import "core:reflect"
 import "core:strconv"
 import "core:strings"
 import "core:unicode"
@@ -95,14 +96,15 @@ emit_push_and_pop_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 
 emit_stack_instruction_with_sp :: proc(tokens: ^[dynamic]Token) -> u16 {
 	inst := tokens[0]
-	sp := tokens[1]
+	register := tokens[1]
+	sp := tokens[2]
 
 	byte_code: com.Instruction
 
 	byte_code.first_nibble = 0b0010
 	byte_code.second_nibble = cast(u16)inst.value.(com.Stack_Instruction)
-	byte_code.third_nibble = cast(u16)inst.value.(com.Stack_Instruction)
-	byte_code.fourth_nibble = cast(u16)sp.value.(int)
+	byte_code.third_nibble = cast(u16)register.value.(com.Register)
+	byte_code.fourth_nibble = cast(u16)sp.value.(com.Register)
 
 	return cast(u16)byte_code
 }
@@ -303,6 +305,35 @@ emit_load_register_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	return cast(u16)byte_code
 }
 
+type_check_instruction :: proc(tokens: ^[dynamic]Token, types: ..typeid) -> Assembler_Error {
+	if len(types) == 0 || len(tokens) == 0 {
+		log.error("expected more arguements")
+		return .Bad_Command
+	}
+
+	if len(tokens) != len(types) {
+		return .Type_Check_Failed
+	}
+
+	for expected_type, i in types {
+		actual_type := reflect.union_variant_typeid(tokens[i].value)
+
+		if actual_type != expected_type {
+			log.errorf(
+				"expected typeof(%v) -> %v, at index: %v, got: %v",
+				tokens[i].value,
+				expected_type,
+				i,
+				actual_type,
+			)
+			return .Type_Check_Failed
+		}
+	}
+
+	return nil
+}
+
+// TODO: Should add checking to every single cast in emits
 emit_bytecode :: proc(
 	c: ^com.Computer,
 	tokens: ^[dynamic]Token,
@@ -315,14 +346,38 @@ emit_bytecode :: proc(
 
 	if token_count == 4 {
 		if tokens[0].value == .imm {
+			type_check_instruction(
+				tokens,
+				typeid_of(com.ALU_Instruction),
+				typeid_of(com.ALU_Instruction),
+				typeid_of(com.Register),
+				typeid_of(int),
+			) or_return
+
 			return emit_immediate_ALU_instruction(c, tokens), nil
 		}
 
 		#partial switch v in tokens[0].value {
 		case com.Load_Store_Instruction:
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Load_Store_Instruction),
+				typeid_of(com.Register),
+				typeid_of(int),
+				typeid_of(com.Register),
+			) or_return
+
 			return emit_load_store_offset_instruction(tokens), nil
 
 		case com.Load_Store_Register_Instruction:
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Load_Store_Register_Instruction),
+				typeid_of(com.Register),
+				typeid_of(com.Register),
+				typeid_of(com.Register),
+			) or_return
+
 			return emit_load_register_instruction(tokens), nil
 		}
 	}
@@ -335,49 +390,144 @@ emit_bytecode :: proc(
 		}
 
 		if tokens[0].value == .sop {
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Stack_Instruction),
+				typeid_of(com.ALU_Instruction),
+				typeid_of(com.Register),
+			) or_return
+
 			return emit_stack_ALU_instruction_with_sp(tokens), nil
 		}
 
 		#partial switch _ in tokens[0].value {
 		case com.ALU_Instruction:
+			type_check_instruction(
+				tokens,
+				typeid_of(com.ALU_Instruction),
+				typeid_of(com.Register),
+				typeid_of(com.Register),
+			) or_return
+
 			return emit_three_token_ALU_instruction(tokens), nil
 
 		case com.Stack_Instruction:
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Stack_Instruction),
+				typeid_of(com.Register),
+				typeid_of(com.Register),
+			) or_return
+
 			return emit_stack_instruction_with_sp(tokens), nil
 
 		case com.Miscellaneous_Instruction:
+			if tokens[0].value == .mov {
+				type_check_instruction(
+					tokens,
+					typeid_of(com.Miscellaneous_Instruction),
+					typeid_of(com.Register),
+					typeid_of(com.Register),
+				) or_return
+
+				return emit_misc_instruction(tokens), nil
+			}
+
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Miscellaneous_Instruction),
+				typeid_of(com.Register),
+				typeid_of(int),
+			) or_return
+
 			return emit_misc_instruction(tokens), nil
 
 		case com.Test_Instruction:
 			#partial switch v in tokens[2].value {
 			case com.Register:
+				type_check_instruction(
+					tokens,
+					typeid_of(com.Test_Instruction),
+					typeid_of(com.Register),
+					typeid_of(com.Register),
+				) or_return
+
 				return emit_test_instruction(tokens), nil
+
 			case int:
+				type_check_instruction(
+					tokens,
+					typeid_of(com.Test_Instruction),
+					typeid_of(com.Register),
+					typeid_of(int),
+				) or_return
+
 				return emit_immediate_mode_test_instruction(tokens), nil
 			}
 
 		case com.Load_Store_Instruction:
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Load_Store_Instruction),
+				typeid_of(com.Register),
+				typeid_of(int),
+			) or_return
+
 			return emit_load_store_instruction(tokens), nil
 		}
 	}
 
 	if token_count == 2 {
 		if tokens[0].value == .push || tokens[0].value == .pop {
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Stack_Instruction),
+				typeid_of(com.Register),
+			) or_return
 			return emit_push_and_pop_instruction(tokens), nil
 		}
 
-		if tokens[0].value == .pop {
+		if tokens[0].value == .sop {
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Stack_Instruction),
+				typeid_of(com.ALU_Instruction),
+			) or_return
 			return emit_stack_ALU_instruction(tokens), nil
 		}
 
 		#partial switch v in tokens[0].value {
 		case com.ALU_Instruction:
+			type_check_instruction(
+				tokens,
+				typeid_of(com.ALU_Instruction),
+				typeid_of(com.Register),
+			) or_return
 			return emit_two_token_ALU_instruction(tokens), nil
+
 		case com.Stack_Instruction:
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Stack_Instruction),
+				typeid_of(com.Register),
+			) or_return
+
 			return emit_stack_instruction(tokens), nil
+
 		case com.Jump_Instruction:
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Jump_Instruction),
+				typeid_of(int),
+			) or_return
 			return emit_jump_instruction(tokens), nil
 		case com.Jump_Register_Instruction:
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Jump_Register_Instruction),
+				typeid_of(com.Register),
+			) or_return
+
 			return emit_jump_register_instruction(tokens), nil
 		}
 	}
@@ -385,10 +535,12 @@ emit_bytecode :: proc(
 	if token_count == 1 {
 		#partial switch _ in tokens[0].value {
 		case com.Stack_Instruction:
+			type_check_instruction(tokens, typeid_of(com.Stack_Instruction)) or_return
 			return emit_stack_instruction(tokens), nil
 		}
 	}
 
+	log.error(tokens)
 	return 0, .Invalid_Instruction
 }
 

@@ -115,6 +115,7 @@ update :: proc(c: ^com.Computer, running: ^bool, buf: []u8) -> Error {
 			return nil
 		}
 
+		log.info(tokens)
 		byte_code := assembler.emit_bytecode(c, &tokens) or_return
 
 		instruction := com.decode_instruction(u16(byte_code)) or_return
