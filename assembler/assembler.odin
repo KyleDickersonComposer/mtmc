@@ -94,6 +94,37 @@ emit_push_and_pop_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 	return cast(u16)byte_code
 }
 
+emit_pushi_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
+	inst := tokens[0]
+	register := tokens[1]
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0010
+	byte_code.second_nibble = cast(u16)inst.value.(com.Stack_Instruction)
+	byte_code.third_nibble = 0b0000
+	byte_code.fourth_nibble = 0b1101
+
+	return cast(u16)byte_code
+}
+
+emit_pushi_instruction_with_sp :: proc(tokens: ^[dynamic]Token) -> u16 {
+	inst := tokens[0]
+	register := tokens[1]
+
+	log.info(tokens)
+	log.info(register)
+
+	byte_code: com.Instruction
+
+	byte_code.first_nibble = 0b0010
+	byte_code.second_nibble = cast(u16)inst.value.(com.Stack_Instruction)
+	byte_code.third_nibble = 0b0000
+	byte_code.fourth_nibble = cast(u16)register.value.(com.Register)
+
+	return cast(u16)byte_code
+}
+
 emit_stack_instruction_with_sp :: proc(tokens: ^[dynamic]Token) -> u16 {
 	inst := tokens[0]
 	register := tokens[1]
@@ -307,7 +338,7 @@ emit_load_register_instruction :: proc(tokens: ^[dynamic]Token) -> u16 {
 
 type_check_instruction :: proc(tokens: ^[dynamic]Token, types: ..typeid) -> Assembler_Error {
 	if len(types) == 0 || len(tokens) == 0 {
-		log.error("expected more arguements")
+		log.error("expected more arguments")
 		return .Bad_Command
 	}
 
@@ -333,7 +364,6 @@ type_check_instruction :: proc(tokens: ^[dynamic]Token, types: ..typeid) -> Asse
 	return nil
 }
 
-// TODO: Should add checking to every single cast in emits
 emit_bytecode :: proc(
 	c: ^com.Computer,
 	tokens: ^[dynamic]Token,
@@ -398,6 +428,17 @@ emit_bytecode :: proc(
 			) or_return
 
 			return emit_stack_ALU_instruction_with_sp(tokens), nil
+		}
+
+		if tokens[0].value == .pushi {
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Stack_Instruction),
+				typeid_of(com.Register),
+				typeid_of(int),
+			) or_return
+
+			return emit_pushi_instruction_with_sp(tokens), nil
 		}
 
 		#partial switch _ in tokens[0].value {
@@ -494,6 +535,16 @@ emit_bytecode :: proc(
 				typeid_of(com.ALU_Instruction),
 			) or_return
 			return emit_stack_ALU_instruction(tokens), nil
+		}
+
+		if tokens[0].value == .pushi {
+			type_check_instruction(
+				tokens,
+				typeid_of(com.Stack_Instruction),
+				typeid_of(int),
+			) or_return
+
+			return emit_pushi_instruction(tokens), nil
 		}
 
 		#partial switch v in tokens[0].value {
@@ -2067,7 +2118,6 @@ tokenize_command :: proc(
 
 		eated := eat(p) or_return
 		log.error("invalid command, got:", eated)
-		// TODO: is this the best way to handle failed commands?
 		clear(t)
 		return
 	}

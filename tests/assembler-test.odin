@@ -709,7 +709,7 @@ emit_sop_instruction :: proc(t: ^testing.T) {
 emit_pushi_instruction :: proc(t: ^testing.T) {
 	c := com.init_computer()
 
-	command := "pushi"
+	command := "pushi 42 sp"
 	instruction_as_bytes: u16 = 0b0010_1111_0000_1101
 
 	tokens := make([dynamic]assembler.Token)

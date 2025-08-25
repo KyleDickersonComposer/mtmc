@@ -98,7 +98,6 @@ execute_command :: proc(c: ^com.Computer, tokens: ^[dynamic]assembler.Token) -> 
 	}
 
 	log.error("invalid command", tokens)
-	// TODO: is this the best way to handle failed commands?
 	clear(tokens)
 	return .Invalid_Command
 }
@@ -144,10 +143,10 @@ print_help :: proc() {
 	fmt.println(
 		"Type the commands below for more information on how to use them!\n",
 		"Commands listing:\n",
-		"\tregisters -> debug print of registers\n",
-		"\tmemory -> debug print of memory\n",
-		"\tflags -> debug print of flags\n",
-		"\tinfo -> debug print of error_info\n",
+		"\tregisters -> print register state\n",
+		"\tmemory -> print memory state\n",
+		"\tflags -> print flags state\n",
+		"\tinfo -> print runtime error information\n",
 		"\texit -> quit the program\n",
 	)
 }

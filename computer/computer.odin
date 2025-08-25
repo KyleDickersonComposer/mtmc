@@ -971,8 +971,7 @@ execute_immediate_ALU_operation :: proc(c: ^Computer, i: Decoded_Instruction) ->
 }
 
 execute_ALU_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
-	// NOTE: reseting flags numerical flags here
-	// TODO: Figure out where to set the flags, probably not here?
+	// NOTE: reseting flags ALU flags
 	c.nan_flag = false
 	c.overflow_flag = false
 
