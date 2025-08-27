@@ -1,6 +1,8 @@
 package assembler
 
+// TODO: refactor this so that it doesn't use types from the other package
 import com "../computer"
+
 import "core:log"
 import "core:reflect"
 import "core:strconv"
@@ -8,10 +10,22 @@ import "core:strings"
 import "core:unicode"
 import "core:unicode/utf8"
 
-init_parser :: proc(data: []rune) -> Parser {
-	assert(len(data) > 0)
 
-	return {data = data, current = data[0], line_number = 1}
+load_binary :: proc(c: ^com.Computer, bin: Binary) -> com.Computer_Error {
+	index := 0
+	for word in bin.code_section {
+		c.Memory[index] = u8(word >> 8)
+		index += 1
+		c.Memory[index] = u8(word)
+		index += 1
+	}
+
+	for d in bin.data_section {
+		c.Memory[index] = d
+		index += 1
+	}
+
+	return nil
 }
 
 free_tokens :: proc(tokens: ^[dynamic]Token) {
@@ -20,6 +34,447 @@ free_tokens :: proc(tokens: ^[dynamic]Token) {
 	}
 
 	delete(tokens^)
+}
+
+// TODO: This is here because we have a cyclical import because we need to refactor the types from computer package out of this package.
+execute_binary :: proc(c: ^com.Computer, bin: Binary) -> com.Computer_Error {
+	cb := i16(len(bin.code_section) * 2)
+
+	c.Registers[com.Register.cb] = cb
+
+	for {
+		if c.Registers[com.Register.pc] < c.Registers[com.Register.cb] {
+			current_instruction := com.read_word_at_memory_address(
+				c,
+				u16(c.Registers[com.Register.pc]),
+				0,
+			)
+
+
+			i := com.decode_instruction(u16(current_instruction)) or_return
+			com.execute_instruction(c, i) or_return
+		} else do break
+	}
+
+	return nil
+}
+
+
+init_parser :: proc(data: []rune) -> Parser {
+	assert(len(data) > 0)
+
+	return {data = data, current = data[0], line_number = 1}
+}
+
+peek_token :: proc(tp: ^Token_Parser) -> Token {
+	if tp.index + 1 < len(tp.data) {
+		return tp.data[tp.index + 1]
+	}
+
+	return {type = .EOF}
+}
+
+eat_token :: proc(tp: ^Token_Parser) {
+	if tp.index >= len(tp.data) {
+		log.error("eated out-of-bounds")
+		return
+	}
+
+	tp.index += 1
+
+	if tp.index >= len(tp.data) {
+		tp.current = {
+			type = .EOF,
+		}
+		return
+	}
+
+	tp.current = tp.data[tp.index]
+
+}
+
+parse_section :: proc(
+	tp: ^Token_Parser,
+	asm_nodes: ^[dynamic]Asm_Node,
+	symbol_table: ^map[string]Label,
+	allocator := context.allocator,
+) -> (
+	sec: Section,
+	err: Assembler_Error,
+) {
+	if tp.current.type != .Directive {
+		log.error("current token wasn't a directive", tp.current)
+		return {}, .Failed_To_Parse_Section
+	}
+
+	if tp.current.lexeme == ".data" {
+		s := Section{}
+		s.kind = .Data
+
+		labels := make([dynamic]Label)
+
+		if tp.current.type == .Instruction {
+			log.error("instructions aren't allowed in the data section")
+			return {}, .Unexpected_Token
+		}
+
+		eat_token(tp)
+
+		for {
+			if tp.current.type == .Unknown {
+				append(&labels, parse_label(tp, symbol_table) or_return)
+			} else {
+				s.labels = labels
+				append(asm_nodes, s)
+				return s, nil
+			}
+		}
+
+		return {}, .Failed_To_Parse_Section
+	}
+
+	if tp.current.lexeme == ".code" {
+		s := Section{}
+		s.kind = .Code
+
+		instructions := make([dynamic]Instruction)
+		labels := make([dynamic]Label)
+
+		eat_token(tp)
+
+		for {
+			if tp.current.type == .Instruction {
+				append(&instructions, parse_instruction(tp, symbol_table) or_return)
+			}
+
+			if tp.current.type == .Unknown {
+				append(&labels, parse_label(tp, symbol_table) or_return)
+			}
+
+			if tp.current.type == .EOF {
+				s.instruction = instructions
+				s.labels = labels
+				append(asm_nodes, s)
+				return s, nil
+			}
+		}
+
+		return {}, .Failed_To_Parse_Section
+	}
+
+	log.error("directive that wasn't code or data", tp.current)
+	return {}, .Failed_To_Parse_Section
+}
+
+match_instruction :: proc(t: Token) -> (com.Instruction_Kind, Assembler_Error) {
+	if t.type != .Instruction {
+		log.error("expected an token to be an instruction, got:", t)
+		return nil, .Unexpected_Token
+	}
+	#partial switch v in t.value {
+	case com.Miscellaneous_Instruction:
+		return v, nil
+	case com.ALU_Instruction:
+		return v, nil
+	case com.Stack_Instruction:
+		return v, nil
+	case com.Test_Instruction:
+		return v, nil
+	case com.Load_Store_Register_Instruction:
+		return v, nil
+	case com.Load_Store_Instruction:
+		return v, nil
+	case com.Jump_Register_Instruction:
+		return v, nil
+	case com.Jump_Instruction:
+		return v, nil
+	}
+
+	log.error("unmatched instruction in token:", t)
+	return {}, .Unexpected_Token
+}
+
+match_operand :: proc(t: Token) -> (Operand_Value, Assembler_Error) {
+	if t.type != .Register &&
+	   t.type != .Immediate_Integer &&
+	   t.type != .Immediate_String &&
+	   t.type != .Unknown {
+		log.error("expected an token to be a valid instruction operand, got:", t)
+		return nil, .Unexpected_Token
+	}
+
+	#partial switch v in t.value {
+	case com.Register:
+		return v, nil
+	case int:
+		return v, nil
+	case string:
+		return v, nil
+	}
+
+	log.error("unmatched instruction in token:", t)
+	return {}, .Unexpected_Token
+}
+
+parse_instruction :: proc(
+	tp: ^Token_Parser,
+	symbol_table: ^map[string]Label,
+) -> (
+	instr: Instruction,
+	err: Assembler_Error,
+) {
+	i := Instruction{}
+	i.instruction = match_instruction(tp.current) or_return
+	eat_token(tp)
+
+	ops := make([dynamic]Operand)
+
+	_, is_symbol := symbol_table[tp.current.lexeme]
+
+
+	// TODO: this breaks with syscalls because we are treating syscall names as unknown right now. Maybe we can parse the syscall names before this point?
+	if tp.current.type == .Unknown && !is_symbol {
+		log.error("expected a valid instruction operand, got:", tp.current)
+		return {}, .Unexpected_Token
+	}
+
+	for {
+		if tp.current.type != .Register &&
+		   tp.current.type != .Immediate_Integer &&
+		   tp.current.type != .Immediate_String {
+			i.operands = ops
+			return i, nil
+		}
+
+		#partial switch tp.current.type {
+		case .Register:
+			append(&ops, Operand{type = .Register, value = match_operand(tp.current) or_return})
+			eat_token(tp)
+			continue
+
+		case .Immediate_Integer:
+			append(&ops, Operand{type = .Integer, value = match_operand(tp.current) or_return})
+			eat_token(tp)
+			continue
+
+		case .Immediate_String:
+			append(&ops, Operand{type = .String, value = match_operand(tp.current) or_return})
+			eat_token(tp)
+			continue
+
+		case .EOF:
+			return i, nil
+
+		case:
+			log.error("hit invalid operand")
+		}
+	}
+
+	log.info("instruction:", i)
+	log.info("current:", tp.current)
+
+	return i, nil
+}
+
+parse_label :: proc(
+	tp: ^Token_Parser,
+	symbol_table: ^map[string]Label,
+	allocator := context.allocator,
+) -> (
+	Label,
+	Assembler_Error,
+) {
+	if tp.current.type == .Unknown {
+		peeked := peek_token(tp)
+
+		size := 0
+		if tp.current.type == .Immediate_Integer do size = 2
+
+		if peeked.value == ":" {
+			n := strings.clone(tp.current.lexeme)
+			eat_token(tp)
+			eat_token(tp)
+
+			if tp.current.type != .Instruction &&
+			   tp.current.type != .Immediate_String &&
+			   tp.current.type != .Immediate_Integer &&
+			   tp.current.type != .Unknown {
+				log.error(
+					"need to implement the other types for labels, also need to handle type directives, got:",
+					tp.current,
+				)
+				return {}, .Unexpected_Token
+			}
+
+			thing: Label
+
+			#partial switch tp.current.type {
+			case .Immediate_String:
+				value := strings.clone(tp.current.lexeme)
+
+				size = len(value) + 1
+
+				thing = Label {
+					name       = n,
+					address    = tp.current_memory_address,
+					value      = value,
+					value_size = size,
+				}
+
+				symbol_table[n] = thing
+
+				eat_token(tp)
+
+			case .Immediate_Integer:
+				thing = Label {
+					name       = n,
+					address    = tp.current_memory_address,
+					value      = tp.current.value.(int),
+					value_size = 2,
+				}
+
+				size = 2
+				symbol_table[n] = thing
+
+				eat_token(tp)
+
+			case .Unknown, .Instruction:
+				thing = Label {
+					name       = n,
+					address    = tp.current_memory_address,
+					value_size = 0,
+				}
+				symbol_table[n] = thing
+
+				size = 0
+
+			case:
+				log.error("label value is an invalid type:", thing)
+				return {}, .Unexpected_Token
+			}
+
+
+			tp.current_memory_address += size
+
+			return thing, nil
+		}
+
+		log.error("expected ':' after ", tp.current)
+		return {}, .Unexpected_Token
+	}
+
+	return {}, .Failed_To_Parse_Label
+}
+
+build_binary :: proc(
+	asm_nodes: ^[dynamic]Asm_Node,
+	symbol_table: ^map[string]Label,
+	allocator := context.allocator,
+) -> (
+	binary: Binary,
+	err: Assembler_Error,
+) {
+	bin: Binary
+
+	data := make([dynamic]u8)
+
+	code := make([dynamic]u16)
+
+	dummy_computer := com.init_computer()
+
+	for node in asm_nodes {
+		#partial switch v in node {
+		case Section:
+			if v.kind == .Data {
+				for label in v.labels {
+					if label.value != nil {
+						switch v in label.value {
+						case string:
+							for r in v {
+								append(&data, cast(u8)r)
+							}
+							append(&data, cast(u8)0)
+
+						case int:
+							append(&data, u8(v >> 8))
+							append(&data, u8(v))
+
+						case []u8:
+							log.error("unhandled data_type: ", node, v)
+
+						case []i16:
+							log.error("unhandled data_type: ", node, v)
+						}
+
+					}
+				}
+			}
+
+			if v.kind == .Code {
+				for i in v.instruction {
+					emit_from_AST(&code, i, node) or_return
+				}
+			}
+		}
+	}
+
+	bin.data_section = data
+	bin.code_section = code
+
+	return bin, nil
+}
+
+assemble :: proc(
+	computer: ^com.Computer,
+	tokens: ^[dynamic]Token,
+	allocator := context.allocator,
+) -> (
+	binary: Binary,
+	err: Assembler_Error,
+) {
+	tp := Token_Parser {
+		data    = tokens[:],
+		current = tokens[0],
+	}
+
+	symbol_table := make(map[string]Label)
+
+	asm_nodes := make([dynamic]Asm_Node)
+
+	for {
+		#partial switch tp.current.type {
+		case .Directive:
+			parse_section(&tp, &asm_nodes, &symbol_table) or_return
+		case .Unknown:
+			parse_label(&tp, &symbol_table) or_return
+		case .EOF:
+			return build_binary(&asm_nodes, &symbol_table)
+		}
+	}
+
+	return {}, .Failed_To_Assemble_Binary
+}
+
+
+tokenize_asm :: proc(
+	assembly: string,
+	allocator := context.allocator,
+) -> (
+	toks: [dynamic]Token,
+	err: Assembler_Error,
+) {
+	tokens := make([dynamic]Token)
+
+	c := com.Computer{}
+
+	split_strs := strings.split(assembly, "\n")
+	defer delete(split_strs)
+
+	for s in split_strs {
+		tokenize_command(&c, &tokens, s) or_return
+	}
+
+	return tokens, nil
 }
 
 emit_immediate_ALU_instruction :: proc(c: ^com.Computer, tokens: ^[dynamic]Token) -> u16 {
@@ -358,6 +813,12 @@ emit_immediate_load_store_instruction :: proc(c: ^com.Computer, tokens: ^[dynami
 	return cast(u16)byte_code
 }
 
+word_or_register :: union {
+	com.Register,
+	i16,
+}
+
+// TODO: this type checking is too restrictive for some of these things. We should write another set of type checking functions that can be used for instructions that take more than on type as input and use them on at a per operand level.
 type_check_instruction :: proc(tokens: ^[dynamic]Token, types: ..typeid) -> Assembler_Error {
 	if len(types) == 0 || len(tokens) == 0 {
 		log.error("expected more arguments")
@@ -386,6 +847,60 @@ type_check_instruction :: proc(tokens: ^[dynamic]Token, types: ..typeid) -> Asse
 	return nil
 }
 
+emit_from_AST :: proc(
+	buf: ^[dynamic]u16,
+	i: Instruction,
+	node: Asm_Node,
+) -> (
+	err: Assembler_Error,
+) {
+	ci: com.Instruction
+
+	#partial switch v in i.instruction {
+	case com.ALU_Instruction:
+		#partial switch v {
+		case .add:
+			reg_A := i.operands[0].value.(com.Register)
+			reg_B := i.operands[1].value.(com.Register)
+
+			ci.first_nibble = 0b0001
+			ci.second_nibble = cast(u16)v
+			ci.third_nibble = cast(u16)reg_A
+			ci.fourth_nibble = cast(u16)reg_B
+
+			append(buf, cast(u16)ci)
+
+			return nil
+
+		case:
+			log.error("unhandled instruction kind:", v, "probably not implemented yet!")
+		}
+
+	case com.Load_Store_Instruction:
+		#partial switch v {
+		case .li:
+			reg_A := i.operands[0].value.(com.Register)
+			value := i.operands[1].value.(int)
+
+			ci.first_nibble = 0b1000
+			ci.second_nibble = cast(u16)v
+			ci.third_nibble = cast(u16)reg_A
+
+			append(buf, cast(u16)ci)
+			append(buf, cast(u16)value)
+
+			return nil
+
+		case:
+			log.error("unhandled instruction kind:", v, "probably not implemented yet!")
+		}
+
+	}
+
+	return .Invalid_Instruction
+}
+
+// TODO: completely refactor this to parse into an AST then call emit_from_AST!
 emit_bytecode :: proc(
 	c: ^com.Computer,
 	tokens: ^[dynamic]Token,
@@ -731,6 +1246,28 @@ eat_line :: proc(
 	return nil, .Failed_To_Eat_Lexeme
 }
 
+eat_directive :: proc(
+	p: ^Parser,
+	allocator := context.allocator,
+) -> (
+	arr: [dynamic]rune,
+	err: Assembler_Error,
+) {
+	arr = make([dynamic]rune)
+	for {
+		if p.index > len(p.data) do return
+
+		if unicode.is_alpha(p.current) || unicode.is_number(p.current) || p.current == '.' {
+			append(&arr, eat(p) or_return)
+		} else {
+			return arr, nil
+		}
+	}
+
+	log.error("failed to eat lexeme", arr)
+	return nil, .Failed_To_Eat_Lexeme
+}
+
 eat_lexeme :: proc(
 	p: ^Parser,
 	allocator := context.allocator,
@@ -764,11 +1301,14 @@ eat_number :: proc(
 	for {
 		if p.index >= len(p.data) do return
 
-		if p.current == '-' {
+		if p.current == '-' && len(arr) == 0 {
 			append(&arr, eat(p) or_return)
 		}
 
-		if unicode.is_number(p.current) {
+		if unicode.is_number(p.current) ||
+		   p.current == 'b' ||
+		   p.current == 'x' ||
+		   (p.current >= 'A' && p.current <= 'F') {
 			append(&arr, eat(p) or_return)
 		} else {
 			return arr, nil
@@ -2093,16 +2633,21 @@ tokenize_command :: proc(
 		}
 
 		if p.current == ':' {
-			append(t, Token{type = .Symbol, lexeme = ":", value = ":", line = p.line_number})
+			lexeme := strings.clone(":")
+
+			append(t, Token{type = .Symbol, lexeme = lexeme, value = ":", line = p.line_number})
 
 			eat(p) or_return
 			continue
 		}
 
 		if p.current == '.' {
-			eat(p) or_return
+			arr := eat_directive(p) or_return
+			defer delete(arr)
 
-			append(t, Token{type = .Symbol, lexeme = ".", value = ".", line = p.line_number})
+			lexeme := utf8.runes_to_string(arr[:])
+
+			append(t, Token{type = .Directive, lexeme = lexeme, line = p.line_number})
 
 			continue
 		}
@@ -2110,8 +2655,6 @@ tokenize_command :: proc(
 		if p.current == '#' {
 			arr := eat_line(p) or_return
 			defer delete(arr)
-			str := utf8.runes_to_string(arr[:])
-			append(t, Token{type = .Comment, lexeme = str, line = line_number, value = str})
 
 			continue
 		}
@@ -2121,7 +2664,6 @@ tokenize_command :: proc(
 			defer delete(arr)
 
 			// NOTE: just a hyphen
-
 			if len(arr) == 1 && !unicode.is_number(arr[0]) {
 				log.error("invalid command, got '-'")
 				continue

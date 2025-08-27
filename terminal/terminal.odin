@@ -8,6 +8,8 @@ import "core:log"
 execute_command :: proc(c: ^com.Computer, tokens: ^[dynamic]assembler.Token) -> Terminal_Error {
 	if len(tokens) == 1 {
 		first_lexeme := tokens[0].lexeme
+
+		// TODO: add reset command for computer state and clear command to clear error info.
 		if first_lexeme == "help" {
 			print_help()
 			return nil

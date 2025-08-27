@@ -19,6 +19,7 @@ init_computer :: proc(allocator := context.allocator) -> Computer {
 }
 
 shutdown_computer :: proc(c: ^Computer) {
+	if len(c.error_info) == 0 do return
 	for s in c.error_info {
 		delete(s.error_message)
 	}
@@ -686,6 +687,8 @@ execute_add :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
 	c.overflow_flag = check_overflow(first_operand, second_operand, .add) or_return
 
 	c.Registers[assignment_register] = first_operand + second_operand
+
+	c.Registers[Register.pc] += 2
 
 	return nil
 }
@@ -1654,6 +1657,8 @@ execute_load_immediate_instruction :: proc(c: ^Computer, i: Decoded_Instruction)
 	value := read_next_word(c)
 
 	c.Registers[assignment_register] = value
+
+	c.Registers[Register.pc] += 4
 }
 
 execute_load_store_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execution_Error {
@@ -1752,18 +1757,6 @@ execute_jump_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Execut
 	return .Failed_To_Execute_Instruction
 }
 
-increment_pc :: proc(c: ^Computer, i: Decoded_Instruction) {
-	switch i.type {
-	case .j, .jr, .jz, .jnz, .jal:
-		return
-	case .mcp, .imm, .debug, .pushi, .eqi, .neqi, .gti, .gtei, .lti, .ltei:
-		c.Registers[Register.pc] += 4
-		return
-	}
-
-	c.Registers[Register.pc] += 2
-}
-
 execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Error {
 	switch v in i.type {
 	case Miscellaneous_Instruction:
@@ -1783,8 +1776,6 @@ execute_instruction :: proc(c: ^Computer, i: Decoded_Instruction) -> Computer_Er
 	case Jump_Instruction:
 		execute_jump_instruction(c, i) or_return
 	}
-
-	increment_pc(c, i)
 
 	if len(c.error_info) > 0 || c.error_flag == true {
 		return .Runtime_Errors_Occured
